@@ -112,7 +112,18 @@ spec:
       initContainers:
       - name: init-templates
         image: busybox
-        command: ['sh', '-c', 'cd /var/dex && wget https://github.com/immunoodle/deployment/raw/refs/heads/main/templates/web.zip && unzip web.zip']
+        command:
+          - 'sh'
+          - '-c'
+          - |
+            if [ ! -d /var/www/web ]; then
+              cd /var/dex
+              wget https://github.com/immunoodle/deployment/raw/refs/heads/main/templates/web.zip
+              unzip -q web.zip
+              rm web.zip
+            else
+              echo "/var/www/web already exists, skipping download"
+            fi
         volumeMounts:
         - name: storage
           mountPath: /var/dex
