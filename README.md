@@ -159,7 +159,11 @@ sudo kubectl -n immunoodle exec -it deploy/redis -- redis-cli --askpass INFO SER
 
 ## Minio
 
-Minio provides S3-compatible object storage. Run the following commands to install Minio and create the `data-portal` bucket.
+Minio provides S3-compatible object storage. 
+
+Note that Minio is AGPL licensed and the source code is [here](https://github.com/minio/minio/tree/RELEASE.2025-07-23T15-54-02Z) for the version deployed.
+
+Run the following commands to install Minio and create the `data-portal` bucket.
 
 ```shell
 sudo kubectl -n immunoodle apply -f k8s-manifests/minio.yml
