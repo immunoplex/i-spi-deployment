@@ -1,0 +1,195 @@
+# =============================================================================
+# Immunoplex Batch Calculator — Redis + API + Worker
+#
+# Background job system for Bayesian standard curve fitting (stanassay).
+# Submits jobs via REST API, queues in Redis, processes via R worker.
+#
+# Prerequisites: PostgreSQL and Redis password configured via sed commands
+# in the main README.
+# =============================================================================
+
+# ─── Batch Calculator Secret ─────────────────────────────────────────────────
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: batch-calculator
+stringData:
+  REDIS_AUTH: IMMUNOODLE_REDIS_AUTH
+  API_KEY: IMMUNOODLE_API_KEY
+
+# ─── Batch Calculator Redis ──────────────────────────────────────────────────
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: batch-calculator-redis
+  labels:
+    app: batch-calculator-redis
+spec:
+  type: ClusterIP
+  ports:
+    - port: 6379
+  selector:
+    app: batch-calculator-redis
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: batch-calculator-redis
+  labels:
+    app: batch-calculator-redis
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: batch-calculator-redis
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: batch-calculator-redis
+    spec:
+      containers:
+        - image: redis:7
+          name: batch-calculator-redis
+          args: ["--requirepass", "$(REDIS_AUTH)"]
+          readinessProbe:
+            tcpSocket:
+              port: 6379
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          env:
+            - name: REDIS_AUTH
+              valueFrom:
+                secretKeyRef:
+                  name: batch-calculator
+                  key: REDIS_AUTH
+          ports:
+            - containerPort: 6379
+              name: redis
+
+# ─── Batch Calculator API ────────────────────────────────────────────────────
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: batch-calculator-api
+  labels:
+    app: batch-calculator-api
+spec:
+  type: ClusterIP
+  ports:
+  - port: 8000
+  selector:
+    app: batch-calculator-api
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: batch-calculator-api
+  labels:
+    app: batch-calculator-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: batch-calculator-api
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: batch-calculator-api
+    spec:
+      containers:
+        - image: ghcr.io/immunoplex/immunoplex-batch-cal-api:main
+          imagePullPolicy: Always
+          name: batch-calculator-api
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          env:
+            - name: REDIS_HOST
+              value: "batch-calculator-redis"
+            - name: REDIS_PORT
+              value: "6379"
+            - name: REDIS_AUTH
+              valueFrom:
+                secretKeyRef:
+                  name: batch-calculator
+                  key: REDIS_AUTH
+            - name: REDIS_DB
+              value: "0"
+            - name: API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: batch-calculator
+                  key: API_KEY
+          ports:
+            - containerPort: 8000
+              name: http
+
+# ─── Batch Calculator Worker ─────────────────────────────────────────────────
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: batch-calculator-worker
+  labels:
+    app: batch-calculator-worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: batch-calculator-worker
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: batch-calculator-worker
+    spec:
+      containers:
+        - image: ghcr.io/immunoplex/immunoplex-batch-cal-worker:main
+          imagePullPolicy: Always
+          name: batch-calculator-worker
+          env:
+            - name: REDIS_HOST
+              value: "batch-calculator-redis"
+            - name: REDIS_PORT
+              value: "6379"
+            - name: REDIS_AUTH
+              valueFrom:
+                secretKeyRef:
+                  name: batch-calculator
+                  key: REDIS_AUTH
+            - name: REDIS_DB
+              value: "0"
+            - name: DB_NAME
+              value: "immunoodle"
+            - name: DB_HOST
+              value: "postgresql"
+            - name: DB_PORT
+              value: "5432"
+            - name: DB_USER
+              value: "postgres"
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgresql
+                  key: POSTGRES_PASSWORD
+            - name: DB_SSLMODE
+              value: "disable"
+            - name: PROGRESS_DIR
+              value: "/tmp"

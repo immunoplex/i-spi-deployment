@@ -226,3 +226,35 @@ sudo kubectl -n immunoodle exec -it deploy/postgresql -- psql -U postgres immuno
 sudo kubectl -n immunoodle apply -f k8s-manifests/i-spi.yml
 sudo kubectl -n immunoodle wait --for=condition=ready pod -l app=i-spi --timeout=5m
 ```
+
+### Batch Calculator
+
+Batch Calculator provides background Bayesian standard curve fitting for i-spi. It includes its own dedicated Redis instance, a FastAPI job submission API, and an R worker that uses the [stanassay](https://github.com/immunoplex/stanassay) package for hierarchical 4PL/5PL/Gompertz ensemble fitting via Stan MCMC.
+
+The batch calculator depends on PostgreSQL being available (it writes results to the `madi_results` schema in the same database as i-spi).
+
+Run the following commands to install the Batch Calculator:
+
+```shell
+sudo kubectl -n immunoodle apply -f k8s-manifests/batch-calculator.yml
+sudo kubectl -n immunoodle wait --for=condition=ready pod -l app=batch-calculator-redis --timeout=5m
+sudo kubectl -n immunoodle wait --for=condition=ready pod -l app=batch-calculator-api --timeout=5m
+sudo kubectl -n immunoodle wait --for=condition=ready pod -l app=batch-calculator-worker --timeout=5m
+```
+
+To confirm the Batch Calculator API is available:
+
+```shell
+sudo kubectl -n immunoodle exec -it deploy/batch-calculator-api -- python3 -c "import urllib.request; print(urllib.request.urlopen('http://localhost:8000/health').read().decode())"
+```
+
+```shell
+#
+# Example output:
+#
+#   {"status":"ok","redis":"connected"}
+#
+
+```
+
+For more information, see the [Batch Calculator repository](https://github.com/immunoplex/immunoplex-batch-calculator).
