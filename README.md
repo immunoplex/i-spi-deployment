@@ -1,8 +1,8 @@
-# Immunoodle Deployment
+# Immunoplex Deployment
 
-TODO: Add short blurb on what Immunoodle is.
+ImmunoPlex enables researchers to assess, analyze, and share data. ImmunoPlex improves QA and QC practices to make them accessible and standardized. We offer tools that enable discovery by increasing statistical power. ImmunoPlex promotes data interoperability, making research more transparent and data more reusable for the community.
 
-This repo provides instructions and manifests for deploying Immunoodle in your choice of Kubernetes clusters.
+This repo provides instructions and manifests for deploying Immunoplex tools in your choice of Kubernetes clusters.
 
 If you don't have a Kubernetes cluster, you can use [k3s](https://rancher.com/docs/k3s/latest/en/). K3s installation instructions are provided below.
 
@@ -10,17 +10,17 @@ Deploy the applications and services in the order listed in the document.
 
 ## Hardware Requirements
 
-To run all the components of immunoodle, you'll need at least 2 CPU cores and 16GB of RAM.  These instructions have been tested on Rocky8, Rocky9, and Ubuntu 24.04.3.
+To run all the components of immunoplex, you'll need at least 4 CPU cores and 16GB of RAM.  These instructions have been tested on Rocky8, Rocky9, and Ubuntu 24.04.3.
 
 ## Configuration for your environment
 
-On the system where you'll be installing immunoodle, clone this git repository and make the changes below to configure immunoodle for your environment.
+On the system where you'll be installing immunoodle, clone this git repository and make the changes below to configure immunoplex for your environment.
 
 ```shell
-git clone https://github.com/immunoodle/deployment.git
+git clone https://github.com/immunoplex/deployment.git
 cd deployment
 
-# Replace PUT_YOUR_HOSTNAME_HERE with the hostname that users will use to access the immunoodle service, then run the `sed` command
+# Replace PUT_YOUR_HOSTNAME_HERE with the hostname that users will use to access the immunoplex service, then run the `sed` command
 sed -i "s/IMMUNOODLE_HOSTNAME/PUT_YOUR_HOSTNAME_HERE/g" k8s-manifests/*
 
 # Replace PUT_YOUR_IP_ADDRESS_HERE with the IP address used to access this host, then run the command
@@ -58,7 +58,7 @@ If you don't have Kubernetes already installed, you can follow these instruction
 
 [K3s Install](K3S.md)
 
-## Create immunoodle namespace
+## Create immunoplex namespace
 
 These instructions expect all components of immunoodle to be installed in the immunoodle namespace. If you haven't already created the `immunoodle` namespace, please do it now.
 
