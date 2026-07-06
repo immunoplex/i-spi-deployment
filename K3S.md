@@ -17,19 +17,21 @@ sudo kubectl get node -o wide
 
 ## CoreDNS
 
-Run the following commands to configure DNS within K3s to allow internal communication between services.
+Run the following commands to configure DNS within K3s so pods can resolve your chosen hostname to the node internally.
+
+> This step assumes the `sed` configuration step from `README.md` (or `README-STANDALONE-ISPI.md`) has already filled in `IMMUNOPLEX_HOSTNAME` / `IMMUNOPLEX_IP_ADDRESS` in `coredns.yml`. Applying it with the placeholders still in place produces a non-functional Corefile.
 
 ```shell
 sudo kubectl apply -f k8s-manifests/coredns.yml
 sudo kubectl -n kube-system rollout restart deploy coredns
 ```
 
-## Create immunoodle namespace
+## Create immunoplex namespace
 
-These instructions expect all components of immunoodle to be installed in the immunoodle namespace. Run the following command to create the namespace.
+These instructions expect all components of immunoplex to be installed in the immunoplex namespace. Run the following command to create the namespace.
 
 ```shell
-sudo kubectl create ns immunoodle
+sudo kubectl create ns immunoplex
 ```
 
 ## Install cert-manager
@@ -123,16 +125,16 @@ spec:
 EOF
 ```
 
-Copy root-ca-secret to immunoodle namespace
+Copy root-ca-secret to immunoplex namespace
 
 ```shell
 sudo kubectl get secret root-ca-secret --namespace=cert-manager -o yaml \
-  | sed 's/namespace: cert-manager/namespace: immunoodle/' \
+  | sed 's/namespace: cert-manager/namespace: immunoplex/' \
   | sudo kubectl create -f -
 ```
 
-Export Root CA certificate. This cert can be imported into user's browsers to trust the encryption between the browser and immunoodle.
+Export Root CA certificate. This cert can be imported into user's browsers to trust the encryption between the browser and immunoplex.
 
 ```shell
-sudo kubectl -n cert-manager get secret root-ca-secret -o jsonpath='{.data.tls\.crt}' | base64 -d > immunoodle-root-ca.crt
+sudo kubectl -n cert-manager get secret root-ca-secret -o jsonpath='{.data.tls\.crt}' | base64 -d > immunoplex-root-ca.crt
 ```

@@ -15,7 +15,7 @@ kind: Secret
 metadata:
   name: postgresql
 stringData:
-  POSTGRES_PASSWORD: IMMUNOODLE_POSTGRES_PASSWORD
+  POSTGRES_PASSWORD: IMMUNOPLEX_POSTGRES_PASSWORD
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -47,7 +47,7 @@ data:
     # Only use the following parameter if the result of `pg_test_timing` is very fast
     sed -Ei "s/^#track_io_timing = off/track_io_timing = on/" $PGDATA/postgresql.conf
 
-    openssl req -new -newkey rsa:4096 -nodes -out $PGDATA/server.csr -keyout $PGDATA/server.key -subj "/CN=postgres.immunoodle.local"
+    openssl req -new -newkey rsa:4096 -nodes -out $PGDATA/server.csr -keyout $PGDATA/server.key -subj "/CN=postgres.immunoplex.local"
     openssl x509 -in $PGDATA/server.csr -out $PGDATA/server.crt -req -signkey $PGDATA/server.key -days 3650
     chmod 600 $PGDATA/server.key
     chown postgres:postgres $PGDATA/server.key

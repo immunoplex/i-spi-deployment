@@ -1,11 +1,25 @@
 # =============================================================================
-# Immunoplex Batch Calculator — Redis + API + Worker
+# Immunoplex Batch Calculator — Redis + API + Worker  (corrected)
 #
-# Background job system for Bayesian standard curve fitting (stanassay).
-# Submits jobs via REST API, queues in Redis, processes via R worker.
+# Background job system for Bayesian standard-curve fitting (stanassay). I-SPI
+# submits jobs to the API; they queue in this component's OWN Redis; the R
+# worker runs Stan MCMC fits and writes curve parameters plus concentration,
+# se_concentration, and pcov to the `madi_results` schema in the `immunoplex`
+# PostgreSQL database that I-SPI also uses.
 #
-# Prerequisites: PostgreSQL and Redis password configured via sed commands
-# in the main README.
+# Dependencies: PostgreSQL only. Redis is bundled here (batch-calculator-redis),
+# so this does NOT require the main redis.yml, MinIO, Data Portal, or the
+# ingest API/Worker.
+#
+# Correction applied relative to the original manifest:
+#   * DB_SSLMODE changed from "disable" to "require". The PostgreSQL init script
+#     hardens pg_hba.conf to REJECT all non-SSL TCP connections
+#     (`hostnossl ... reject`, only `hostssl ... md5` permitted), so a worker
+#     connecting with SSL disabled is refused. `require` matches how I-SPI
+#     itself connects over SSL.
+#
+# Prerequisites: PostgreSQL must be deployed; IMMUNOPLEX_REDIS_AUTH and
+# IMMUNOPLEX_API_KEY substituted via the repo's `sed` step.
 # =============================================================================
 
 # ─── Batch Calculator Secret ─────────────────────────────────────────────────
@@ -15,8 +29,8 @@ kind: Secret
 metadata:
   name: batch-calculator
 stringData:
-  REDIS_AUTH: IMMUNOODLE_REDIS_AUTH
-  API_KEY: IMMUNOODLE_API_KEY
+  REDIS_AUTH: IMMUNOPLEX_REDIS_AUTH
+  API_KEY: IMMUNOPLEX_API_KEY
 
 # ─── Batch Calculator Redis ──────────────────────────────────────────────────
 ---
@@ -177,7 +191,7 @@ spec:
             - name: REDIS_DB
               value: "0"
             - name: DB_NAME
-              value: "immunoodle"
+              value: "immunoplex"
             - name: DB_HOST
               value: "postgresql"
             - name: DB_PORT
@@ -189,7 +203,9 @@ spec:
                 secretKeyRef:
                   name: postgresql
                   key: POSTGRES_PASSWORD
+            # CORRECTION: was "disable". PostgreSQL rejects non-SSL TCP
+            # connections (see postgresql.yml init.sh), so SSL is required.
             - name: DB_SSLMODE
-              value: "disable"
+              value: "require"
             - name: PROGRESS_DIR
               value: "/tmp"

@@ -1,119 +1,131 @@
-# Immunoplex Deployment
+# ImmunoPlex Deployment (Standalone I-SPI)
 
 ImmunoPlex enables researchers to assess, analyze, and share data. ImmunoPlex improves QA and QC practices to make them accessible and standardized. We offer tools that enable discovery by increasing statistical power. ImmunoPlex promotes data interoperability, making research more transparent and data more reusable for the community.
 
-This repo provides instructions and manifests for deploying Immunoplex tools in your choice of Kubernetes clusters.
+This repo provides instructions and manifests for deploying a **standalone I-SPI** analysis instance — I-SPI plus the edge (Traefik), authentication (Dex), and data (PostgreSQL) layers it needs — on your choice of Kubernetes cluster. Data Portal, the ingest API/Worker, the main Redis, and MinIO belong to the larger data-sharing platform and are **not** part of this deployment.
 
 If you don't have a Kubernetes cluster, you can use [k3s](https://rancher.com/docs/k3s/latest/en/). K3s installation instructions are provided below.
 
-Deploy the applications and services in the order listed in the document.
+Deploy the applications and services in the order listed in this document.
+
+## Documentation map
+
+| Document | What it's for |
+|---|---|
+| **README.md** (this file) | The quick, ordered install for a standalone I-SPI instance |
+| `README-STANDALONE-ISPI.md` | The detailed runbook, the corrected-manifest notes, and troubleshooting |
+| `ARCHITECTURE.md` | Why the pieces fit together, sizing, and the design choices behind them |
+| `K3S.md` | Installing single-node K3s + cert-manager + the private CA (if you have no cluster) |
+| `OFFLINE-IMAGES.md` | Obtaining and side-loading container images for offline / air-gapped installs |
+| `TEST-DEPLOYMENT-CIVO.md` / `TEST-DEPLOYMENT-LOCAL.md` | End-to-end throwaway-test runbooks (cloud VM / local host) |
 
 ## Hardware Requirements
 
-To run all the components of immunoplex, you'll need at least 4 CPU cores and 16GB of RAM.  These instructions have been tested on Rocky8, Rocky9, and Ubuntu 24.04.3.
+The documented floor is **4 CPU cores and 16 GB of RAM**, which is adequate for bring-up and light use. Note that I-SPI performs its standard-curve fitting **in-process** (stanassay/Stan + JAGS, parallelized with the R `future` package), so I-SPI itself is the CPU- and memory-heavy component — for real fitting workloads, size well above the floor (≥ 8 vCPU, ≥ 16 GB, more RAM preferred) and see `ARCHITECTURE.md` §2.5. These instructions have been tested on Rocky8, Rocky9, and Ubuntu 24.04.
 
 ## Configuration for your environment
 
-On the system where you'll be installing immunoodle, clone this git repository and make the changes below to configure immunoplex for your environment.
+On the system where you'll be installing I-SPI, clone this git repository and make the changes below to configure it for your environment.
 
 ```shell
 git clone https://github.com/immunoplex/deployment.git
 cd deployment
 
-# Replace PUT_YOUR_HOSTNAME_HERE with the hostname that users will use to access the immunoplex service, then run the `sed` command
-sed -i "s/IMMUNOODLE_HOSTNAME/PUT_YOUR_HOSTNAME_HERE/g" k8s-manifests/*
+# Replace PUT_YOUR_HOSTNAME_HERE with the hostname that users will use to access the service, then run the `sed` command
+sed -i "s/IMMUNOPLEX_HOSTNAME/PUT_YOUR_HOSTNAME_HERE/g" k8s-manifests/*
 
 # Replace PUT_YOUR_IP_ADDRESS_HERE with the IP address used to access this host, then run the command
-sed -i "s/IMMUNOODLE_IP_ADDRESS/PUT_YOUR_IP_ADDRESS_HERE/g" k8s-manifests/*
+sed -i "s/IMMUNOPLEX_IP_ADDRESS/PUT_YOUR_IP_ADDRESS_HERE/g" k8s-manifests/*
 
 # Replace PUT_YOUR_POSTGRES_PASSWORD_HERE with a strong password for the `postgres` user in PostgreSQL, then run the `sed` command
-sed -i "s/IMMUNOODLE_POSTGRES_PASSWORD/PUT_YOUR_POSTGRES_PASSWORD_HERE/g" k8s-manifests/*
-
-# Replace PUT_YOUR_REDIS_PASSWORD_HERE with a strong password used for accessing REDIS, then run the command
-sed -i "s/IMMUNOODLE_REDIS_AUTH/PUT_YOUR_REDIS_PASSWORD_HERE/g" k8s-manifests/*
-
-# Replace PUT_YOUR_MINIO_ROOT_PASSWORD_HERE with a strong password used for accessing Minio (local S3 Object Storage), then run the `sed` command
-sed -i "s/IMMUNOODLE_MINIO_ROOT_PASSWORD/PUT_YOUR_MINIO_ROOT_PASSWORD_HERE/g" k8s-manifests/*
+sed -i "s/IMMUNOPLEX_POSTGRES_PASSWORD/PUT_YOUR_POSTGRES_PASSWORD_HERE/g" k8s-manifests/*
 
 # Run the following two commands to generate a random string which will be used as part of the authentication service
-IMMUNOODLE_OAUTH_CLIENT_ID=$(openssl rand -hex 32)
-sed -i "s/IMMUNOODLE_OAUTH_CLIENT_ID/$IMMUNOODLE_OAUTH_CLIENT_ID/g" k8s-manifests/*
+IMMUNOPLEX_OAUTH_CLIENT_ID=$(openssl rand -hex 32)
+sed -i "s/IMMUNOPLEX_OAUTH_CLIENT_ID/$IMMUNOPLEX_OAUTH_CLIENT_ID/g" k8s-manifests/*
 
 # Run the following two commands to generate a random string which will be used as part of the authentication service
-IMMUNOODLE_OAUTH_SECRET=$(openssl rand -hex 32)
-sed -i "s/IMMUNOODLE_OAUTH_SECRET/$IMMUNOODLE_OAUTH_SECRET/g" k8s-manifests/*
-
-# Run the following two commands to generate a random string which will be used as part of the authentication service
-IMMUNOODLE_OAUTH_COOKIE_SECRET=$(openssl rand -hex 16)
-sed -i "s/IMMUNOODLE_OAUTH_COOKIE_SECRET/$IMMUNOODLE_OAUTH_COOKIE_SECRET/g" k8s-manifests/*
-
-# Run the following two commands to generate a random string which will be used for internal API server access
-IMMUNOODLE_API_KEY=$(openssl rand -hex 32)
-sed -i "s/IMMUNOODLE_API_KEY/$IMMUNOODLE_API_KEY/g" k8s-manifests/*
+IMMUNOPLEX_OAUTH_SECRET=$(openssl rand -hex 32)
+sed -i "s/IMMUNOPLEX_OAUTH_SECRET/$IMMUNOPLEX_OAUTH_SECRET/g" k8s-manifests/*
 ```
 
-## Install k3s (Only requireed if you don't already have a Kubernetes cluster)
+The four values above (hostname, IP, Postgres password, and the two OAuth values) are all a core standalone I-SPI install needs. The following two are only needed if you deploy the **optional** components:
 
-If you don't have Kubernetes already installed, you can follow these instructions for deploying K3s (a lightweight Kubernetes environment).
+```shell
+# ONLY if you deploy the optional whoami test harness (whoami.yml)
+IMMUNOPLEX_OAUTH_COOKIE_SECRET=$(openssl rand -hex 16)
+sed -i "s/IMMUNOPLEX_OAUTH_COOKIE_SECRET/$IMMUNOPLEX_OAUTH_COOKIE_SECRET/g" k8s-manifests/*
+
+# ONLY if you deploy the optional external Batch Calculator (batch-calculator.yml)
+sed -i "s/IMMUNOPLEX_REDIS_AUTH/PUT_YOUR_REDIS_PASSWORD_HERE/g" k8s-manifests/*
+IMMUNOPLEX_API_KEY=$(openssl rand -hex 32)
+sed -i "s/IMMUNOPLEX_API_KEY/$IMMUNOPLEX_API_KEY/g" k8s-manifests/*
+```
+
+> Keep the substituted copies out of version control — they now contain real secrets.
+
+## Install k3s (Only required if you don't already have a Kubernetes cluster)
+
+If you don't have Kubernetes already installed, you can follow these instructions for deploying K3s (a lightweight Kubernetes environment). This also covers cert-manager and the private CA the Ingresses use.
 
 [K3s Install](K3S.md)
 
 ## Create immunoplex namespace
 
-These instructions expect all components of immunoodle to be installed in the immunoodle namespace. If you haven't already created the `immunoodle` namespace, please do it now.
+These instructions expect all components to be installed in the `immunoplex` namespace. If you haven't already created the `immunoplex` namespace (K3S.md creates it), please do it now.
 
 ```shell
-sudo kubectl create ns immunoodle
+sudo kubectl create ns immunoplex
 ```
 
 ## Traefik
 
-Traefik is a Ingress Controller that provides access to the various Immunoodle Components. Run the following command to install Traefik.
+Traefik is an Ingress Controller that provides access to the various ImmunoPlex components. Run the following command to install Traefik.
 
 ```shell
-sudo kubectl -n immunoodle apply -f k8s-manifests/traefik.yml
+sudo kubectl -n immunoplex apply -f k8s-manifests/traefik.yml
 ```
 
 ## Dex
 
-Dex is an Identity Provider that's used for authentication to the Immunoodle components.  Run the following command to install Dev.
+Dex is an Identity Provider that's used for authentication to the ImmunoPlex components. Run the following command to install Dex.
 
 ```shell
-sudo kubectl -n immunoodle apply -f k8s-manifests/dex.yml 
+sudo kubectl -n immunoplex apply -f k8s-manifests/dex.yml
 ```
 
-## Whoami
+## Whoami (optional test harness)
 
-Whoami lets us test the components installed thus far.  Run the following command to install `whoami`.
+Whoami lets us verify the Traefik + Dex authentication chain before deploying I-SPI. It is optional — deploy it during bring-up, confirm login works, then delete it. Run the following command to install `whoami`.
 
 ```shell
-sudo kubectl -n immunoodle apply -f k8s-manifests/whoami.yml
-sudo kubectl -n immunoodle wait --for=condition=ready pod -l app=whoami --timeout=5m
+sudo kubectl -n immunoplex apply -f k8s-manifests/whoami.yml
+sudo kubectl -n immunoplex wait --for=condition=ready pod -l app=whoami --timeout=5m
 ```
 
 To test Dex and Traefik, follow these steps:
 
-1. In your browser, navigate to: https://PUT_IMMUNOODLE_HOSTNAME_HERE/whoami
+1. In your browser, navigate to: `https://<your-hostname>/whoami`
 2. You will be redirected to Dex. Click `Signup` to create a user account
 3. Provide your name, email address and create a password, then click `SIGNUP`
 4. Provide your email address and password on the login screen
-5. After sucessful login, you'll be redirected back to `whoami`.
+5. After successful login, you'll be redirected back to `whoami`.
 
-`whoami` displays a variety of information about the HTTP request.  Find the `X-Forwarded-Email` attribute to see that your email address is specified as the authenticated user.
+`whoami` displays a variety of information about the HTTP request. Find the `X-Forwarded-Email` attribute to see that your email address is specified as the authenticated user.
 
 ## PostgreSQL
 
-PostgreSQL is used as the relational database for many of the Immunoodle components.  Run the following commands to install PostgreSQL.
+PostgreSQL is the relational database used by I-SPI. Run the following commands to install PostgreSQL.
 
 ```shell
-sudo kubectl -n immunoodle apply -f k8s-manifests/postgresql.yml
-sudo kubectl -n immunoodle wait --for=condition=ready pod -l app=postgresql --timeout=5m
+sudo kubectl -n immunoplex apply -f k8s-manifests/postgresql.yml
+sudo kubectl -n immunoplex wait --for=condition=ready pod -l app=postgresql --timeout=5m
 ```
 
-To confirm PostgreSQL is available, run the following command.  If successfull, it will display the version of PostgreSQL.
+To confirm PostgreSQL is available, run the following command. If successful, it will display the version of PostgreSQL.
 
 ```shell
-sudo kubectl -n immunoodle exec -it deploy/postgresql -- psql -U postgres -c "select version();"
+sudo kubectl -n immunoplex exec -it deploy/postgresql -- psql -U postgres -c "select version();"
 ```
 
 ```shell
@@ -124,128 +136,48 @@ sudo kubectl -n immunoodle exec -it deploy/postgresql -- psql -U postgres -c "se
 #   ---------------------------------------------------------------------------------------------------------------------
 #   PostgreSQL 17.2 (Debian 17.2-1.pgdg120+1) on x86_64-pc-linux-gnu, compiled by gcc (Debian 12.2.0-14) 12.2.0, 64-bit
 #   (1 row)
-# 
+#
 ```
 
-## Redis
+## I-SPI
 
-Redis is the key-value database. Run the following commands to install Redis.
+I-SPI is an interactive R Shiny application for processing, analyzing, and visualizing Luminex bead-based immunoassay data. It provides a unified platform for managing serology experiments with robust features for data import, quality control, curve fitting, and results visualization. In this standalone deployment, I-SPI depends on **PostgreSQL, Dex, and Traefik** being deployed first, and it performs all curve fitting and the concentration / se_concentration / pcov computation in-process (see `ARCHITECTURE.md` §3.4).
+
+Set up the database for the application first — create the `immunoplex` database and load the I-SPI dump:
 
 ```shell
-sudo kubectl -n immunoodle apply -f k8s-manifests/redis.yml
-sudo kubectl -n immunoodle wait --for=condition=ready pod -l app=redis --timeout=5m
+sudo kubectl -n immunoplex exec -it deploy/postgresql -- psql -U postgres -c "CREATE DATABASE immunoplex;"
+sudo kubectl -n immunoplex exec -i deploy/postgresql -- psql -U postgres immunoplex < db-dumps/i-spi-db.sql
 ```
 
-To confirm Redis is available, run the following command. When prompted, provide the password you select above.
+Then deploy I-SPI:
 
 ```shell
-sudo kubectl -n immunoodle exec -it deploy/redis -- redis-cli --askpass INFO SERVER
+sudo kubectl -n immunoplex apply -f k8s-manifests/i-spi.yml
+sudo kubectl -n immunoplex wait --for=condition=ready pod -l app=i-spi --timeout=10m
 ```
 
-```shell
-#  
-# Example output:
-# 
-#   # Server
-#   redis_version:8.2.3
-#   redis_git_sha1:00000000
-#   redis_git_dirty:1
-#   redis_build_id:c978de5219ded02d
-#   redis_mode:standalone
-#   os:Linux 4.18.0-553.81.1.el8_10.x86_64 x86_64
-#   ...
-# 
-```
+After this, you have a fully working analysis instance. Browse to `https://<your-hostname>/i-spi/`, log in via Dex, and run a standard-curve fit; when concentration / se_concentration / pcov results appear, the in-process fitting path is working.
 
-## Minio
+## Batch Calculator (optional)
 
-Minio provides S3-compatible object storage. 
+Batch Calculator provides background Bayesian standard-curve fitting as an external service. It includes its own dedicated Redis instance, a FastAPI job submission API, and an R worker that uses the [stanassay](https://github.com/immunoplex/stanassay) package for hierarchical 4PL/5PL/Gompertz ensemble fitting via Stan MCMC.
 
-Note that Minio is AGPL licensed and the source code is [here](https://github.com/minio/minio/tree/RELEASE.2025-07-23T15-54-02Z) for the version deployed.
-
-Run the following commands to install Minio and create the `data-portal` bucket.
-
-```shell
-sudo kubectl -n immunoodle apply -f k8s-manifests/minio.yml
-sudo kubectl -n immunoodle wait --for=condition=ready pod -l app=minio --timeout=5m
-sudo kubectl -n immunoodle exec -it deploy/minio -- sh -c 'mc alias set minio http://localhost:9000 root $MINIO_ROOT_PASSWORD'
-sudo kubectl -n immunoodle exec -it deploy/minio -- mc mb minio/data-portal
-```
-
-To confirm Minio is available, run the following command. If available, you'll get a `HTTP/1.1 200 OK` response.
-
-```shell
-sudo kubectl -n immunoodle exec -it deploy/minio -- curl localhost:9000/minio/health/ready -I | head -1
-```
-
-## Applications
-
-### Worker
-
-Worker handles task management for data processing. Run the following commands to install the Worker component.
-
-```shell
-sudo kubectl -n immunoodle apply -f k8s-manifests/worker.yml
-sudo kubectl -n immunoodle wait --for=condition=ready pod -l app=worker --timeout=5m
-```
-
-### API
-
-API provides API endpoints for data processing. Run the following commands to install the API component.
-
-```shell
-sudo kubectl -n immunoodle apply -f k8s-manifests/api.yml
-sudo kubectl -n immunoodle wait --for=condition=ready pod -l app=api --timeout=5m
-```
-
-### Data Portal
-
-Data Portal Database
-
-```shell
-gunzip -c db-dumps/dataportal.sql.gz | sudo kubectl -n immunoodle exec -it deploy/postgresql -- psql -U postgres postgres
-```
-
-```shell
-sudo kubectl -n immunoodle apply -f k8s-manifests/data-portal.yml
-sudo kubectl -n immunoodle wait --for=condition=ready pod -l app=data-portal --timeout=5m
-```
-
-### I-SPI
-
-I-SPI is an interactive R Shiny application for processing, analyzing, and visualizing Luminex bead-based immunoassay data. It provides a unified platform for managing serology experiments with robust features for data import, quality control, curve fitting, and results visualization. I-SPI depends on the rest of the Infrastructure and Application stacks being deployed first
-
-Set-up the database for the application first. Find the name of the postgresql pod in the immunoodle namespace:
-
-```shell
-sudo kubectl -n immunoodle exec -it deploy/postgresql -- psql -U postgres -c "CREATE DATABASE immunoodle;"
-sudo kubectl -n immunoodle exec -it deploy/postgresql -- psql -U postgres immunoodle < db-dumps/i-spi-db.sql
-```
-
-```shell
-sudo kubectl -n immunoodle apply -f k8s-manifests/i-spi.yml
-sudo kubectl -n immunoodle wait --for=condition=ready pod -l app=i-spi --timeout=5m
-```
-
-### Batch Calculator
-
-Batch Calculator provides background Bayesian standard curve fitting for i-spi. It includes its own dedicated Redis instance, a FastAPI job submission API, and an R worker that uses the [stanassay](https://github.com/immunoplex/stanassay) package for hierarchical 4PL/5PL/Gompertz ensemble fitting via Stan MCMC.
-
-The batch calculator depends on PostgreSQL being available (it writes results to the `madi_results` schema in the same database as i-spi).
+> **The provided I-SPI build does its fitting in-process and does not call this service** (see `ARCHITECTURE.md` §3.5). Deploy it **only** if your I-SPI build is known to offload fitting jobs to it; otherwise it will sit idle. It depends on PostgreSQL (it writes results to the `madi_results` schema in the same `immunoplex` database as I-SPI) and brings its own Redis.
 
 Run the following commands to install the Batch Calculator:
 
 ```shell
-sudo kubectl -n immunoodle apply -f k8s-manifests/batch-calculator.yml
-sudo kubectl -n immunoodle wait --for=condition=ready pod -l app=batch-calculator-redis --timeout=5m
-sudo kubectl -n immunoodle wait --for=condition=ready pod -l app=batch-calculator-api --timeout=5m
-sudo kubectl -n immunoodle wait --for=condition=ready pod -l app=batch-calculator-worker --timeout=5m
+sudo kubectl -n immunoplex apply -f k8s-manifests/batch-calculator.yml
+sudo kubectl -n immunoplex wait --for=condition=ready pod -l app=batch-calculator-redis --timeout=5m
+sudo kubectl -n immunoplex wait --for=condition=ready pod -l app=batch-calculator-api --timeout=5m
+sudo kubectl -n immunoplex wait --for=condition=ready pod -l app=batch-calculator-worker --timeout=5m
 ```
 
 To confirm the Batch Calculator API is available:
 
 ```shell
-sudo kubectl -n immunoodle exec -it deploy/batch-calculator-api -- python3 -c "import urllib.request; print(urllib.request.urlopen('http://localhost:8000/health').read().decode())"
+sudo kubectl -n immunoplex exec -it deploy/batch-calculator-api -- python3 -c "import urllib.request; print(urllib.request.urlopen('http://localhost:8000/health').read().decode())"
 ```
 
 ```shell
@@ -254,7 +186,6 @@ sudo kubectl -n immunoodle exec -it deploy/batch-calculator-api -- python3 -c "i
 #
 #   {"status":"ok","redis":"connected"}
 #
-
 ```
 
 For more information, see the [Batch Calculator repository](https://github.com/immunoplex/immunoplex-batch-calculator).

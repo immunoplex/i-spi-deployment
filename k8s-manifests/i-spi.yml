@@ -1,10 +1,59 @@
+# =============================================================================
+# I-SPI — STANDALONE deployment (corrected, with Batch Calculator support)
+#
+# Runs I-SPI together with the Batch Calculator (curve fitting / concentration
+# calculation), but WITHOUT Data Portal, the ingest API/Worker, the main Redis,
+# or MinIO. The Batch Calculator (batch-calculator.yml) is self-contained apart
+# from PostgreSQL — it ships its own Redis — so no other excluded pieces are
+# pulled in.
+#
+# Corrections applied relative to the original manifest:
+#   1. DEX_CLIENT_SECRET now reads from this file's own `i-spi` Secret
+#      (was reading from the `data-portal` Secret, which only exists if
+#      data-portal.yml is applied — the hidden dependency that broke a
+#      standalone install).
+#   2. REDIRECT_URL (the literal `???` under #FIX ME) replaced with
+#      DEX_LOGOUT_ENDPOINT — the variable the I-SPI app actually documents in
+#      its .env.sample. REDIRECT_URL is not part of the app's interface.
+#   3. resources requests/limits are uncommented and given sane, tunable
+#      starting values (was commented out under a # FIXME marker).
+#   4. SHINY_LOG_LEVEL set to INFO for normal operation (was DEBUG). Switch
+#      back to DEBUG temporarily if you need to troubleshoot the OAuth flow.
+#   5. Env reconciled with the I-SPI app's .env.sample and source
+#      (madi-lumi-reader): added the uppercase "python engine" DB_* set and
+#      upload_template_path (both documented by the app), and confirmed the
+#      Dex/OIDC variables against app.R / auth_config.R.
+#
+# Batch / Bayesian fitting: the provided I-SPI source runs ALL fitting and the
+# concentration / se_concentration / pcov computation IN-PROCESS (stanassay +
+# JAGS, parallelized with future), coordinating through the shared `immunoplex`
+# database (madi_results schema). It does NOT call the external
+# batch-calculator-api and reads no endpoint/key for it — so I-SPI itself is the
+# heavy compute component (see resources below) and there is no batch wiring to
+# set here. Whether to also deploy batch-calculator.yml is a separate decision;
+# see ARCHITECTURE.md §3.5.
+#
+# Placeholders (IMMUNOPLEX_*) are intentionally preserved so this file still
+# works with the repo's `sed` configuration step. With the Batch Calculator,
+# substitute: IMMUNOPLEX_HOSTNAME, IMMUNOPLEX_POSTGRES_PASSWORD,
+# IMMUNOPLEX_OAUTH_CLIENT_ID, IMMUNOPLEX_OAUTH_SECRET, IMMUNOPLEX_API_KEY
+# (and IMMUNOPLEX_REDIS_AUTH, used by batch-calculator.yml).
+# =============================================================================
+
+# ─── OAuth client secret (consumed by this Deployment) ───────────────────────
 ---
 apiVersion: v1
 kind: Secret
 metadata:
   name: i-spi
 stringData:
-  DEX_CLIENT_SECRET: IMMUNOODLE_OAUTH_SECRET
+  DEX_CLIENT_SECRET: IMMUNOPLEX_OAUTH_SECRET
+  # No API_KEY here: the provided I-SPI source does its fitting in-process and
+  # does not authenticate to the external batch-calculator-api. If a future build
+  # of I-SPI offloads to that service and needs the shared key, add:
+  #   API_KEY: IMMUNOPLEX_API_KEY   (matches batch-calculator.yml via sed)
+
+# ─── Ingress: https://HOST/i-spi ─────────────────────────────────────────────
 ---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
@@ -28,8 +77,10 @@ spec:
               number: 3838
   tls:
   - hosts:
-    - IMMUNOODLE_HOSTNAME
+    - IMMUNOPLEX_HOSTNAME
     secretName: cert-secret
+
+# ─── Service ─────────────────────────────────────────────────────────────────
 ---
 apiVersion: v1
 kind: Service
@@ -43,6 +94,8 @@ spec:
   - port: 3838
   selector:
     app: i-spi
+
+# ─── Deployment ──────────────────────────────────────────────────────────────
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -66,17 +119,27 @@ spec:
         app: i-spi
     spec:
       containers:
-        - image: ghcr.io/immunoodle/i-spi:main
+        - image: ghcr.io/immunoplex/i-spi:main
           name: i-spi
-# FIXME
-#          resources:
-#            requests:
-#              cpu: "6"
-#            limits:
-#              cpu: "10"
+          # CORRECTION 3: resources uncommented. Because fitting runs IN-PROCESS
+          # (stanassay/Stan + JAGS, parallelized with future multicore), I-SPI —
+          # not a separate worker — is the CPU- and memory-bound component. The
+          # original manifest's commented values requested 6 CPU / limited to 10,
+          # which reflects that reality. Values below are a schedulable starting
+          # point; raise them (and use a node bigger than the 4-core/16 GB floor)
+          # for real fitting workloads. `future` is configured for up to ~5 GB of
+          # globals, so keep memory generous.
+          resources:
+            requests:
+              cpu: "2"
+              memory: "4Gi"
+            limits:
+              cpu: "8"
+              memory: "12Gi"
           env:
+            # ── Database: R engine (lowercase) ────────────────────────────────
             - name: db
-              value: "immunoodle"
+              value: "immunoplex"
             - name: db_host
               value: "postgresql"
             - name: db_port
@@ -88,29 +151,73 @@ spec:
                 secretKeyRef:
                   name: postgresql
                   key: POSTGRES_PASSWORD
+            # ── Database: Python engine (uppercase) ───────────────────────────
+            # CORRECTION 6: the I-SPI .env.sample documents a SECOND, uppercase
+            # set of DB credentials "for python engine" with the same values.
+            # The original manifest set only the lowercase set, which would leave
+            # any Python-side database access unconfigured.
+            - name: DB
+              value: "immunoplex"
+            - name: DB_HOST
+              value: "postgresql"
+            - name: DB_PORT
+              value: "5432"
+            - name: DB_USERID_X
+              value: postgres
+            - name: DB_PWD_X
+              valueFrom:
+                secretKeyRef:
+                  name: postgresql
+                  key: POSTGRES_PASSWORD
+            # CORRECTION 7: documented in .env.sample but omitted by the original
+            # manifest. Back this path with a PVC if uploaded templates must
+            # survive pod restarts.
+            - name: upload_template_path
+              value: "/tmp/uploaded_templates"
+            # CORRECTION 4: INFO for normal operation; set to DEBUG to
+            # troubleshoot the login / OAuth flow during initial bring-up.
             - name: SHINY_LOG_LEVEL
-              value: DEBUG
+              value: INFO
             - name: SHINY_LOG_STDERR
               value: "1"
-#FIX ME
-            - name: REDIRECT_URL
-              value: ???
-
             - name: PGSSLCERT
               value: "/tmp/postgresql.crt"
+            # ── Dex / OIDC ────────────────────────────────────────────────────
             - name: DEX_ISSUER
-              value: "https://IMMUNOODLE_HOSTNAME/dex"
+              value: "https://IMMUNOPLEX_HOSTNAME/dex"
             - name: DEX_CLIENT_ID
-              value: IMMUNOODLE_OAUTH_CLIENT_ID
+              value: IMMUNOPLEX_OAUTH_CLIENT_ID
+            # CORRECTION 1: read the OAuth client secret from this file's own
+            # `i-spi` Secret (was `name: data-portal`).
             - name: DEX_CLIENT_SECRET
               valueFrom:
                 secretKeyRef:
-                  name: data-portal
+                  name: i-spi
                   key: DEX_CLIENT_SECRET
             - name: APP_REDIRECT_URI
-              value: https://IMMUNOODLE_HOSTNAME/i-spi/
+              value: "https://IMMUNOPLEX_HOSTNAME/i-spi/"
+            # CORRECTION 2 (revised): the original `REDIRECT_URL: ???` is not a
+            # variable the I-SPI app reads — its .env.sample documents
+            # DEX_LOGOUT_ENDPOINT instead (as does the sibling data-portal app).
+            # Replaced accordingly. If your I-SPI build genuinely reads
+            # REDIRECT_URL, add it back alongside this.
+            - name: DEX_LOGOUT_ENDPOINT
+              value: "https://IMMUNOPLEX_HOSTNAME/i-spi/"
+            # Used by the manifests (and data-portal); not in .env.sample, which
+            # also omits other real vars, so the sample is not exhaustive. Kept.
             - name: DEX_INTERNAL_URL
               value: "http://dex:5556/dex"
+            # ── Batch / Bayesian fitting: runs IN-PROCESS ─────────────────────
+            # The I-SPI source (global.R, batch_fit_functions.R,
+            # bayes_concentration_functions.R) performs all curve fitting and the
+            # concentration / se_concentration / pcov computation INSIDE this pod:
+            # frequentist robust curves, JAGS MCMC (rjags), and the Bayesian
+            # ensemble via the `stanassay` package — all parallelized with the R
+            # `future` package (multicore). It coordinates job state through the
+            # shared `immunoplex` database (madi_results schema), and reads NO
+            # endpoint or API-key variable for the external batch-calculator-api
+            # service. There is therefore nothing to wire here; see ARCHITECTURE.md
+            # §3.5 on whether you also need to deploy batch-calculator.yml.
           ports:
           - containerPort: 3838
             name: shiny

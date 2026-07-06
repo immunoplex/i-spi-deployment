@@ -6,9 +6,9 @@ metadata:
   namespace: kube-system
 data:
   default.server: |
-    IMMUNOODLE_HOSTNAME {
+    IMMUNOPLEX_HOSTNAME {
         hosts {
-              IMMUNOODLE_IP_ADDRESS IMMUNOODLE_HOSTNAME
+              IMMUNOPLEX_IP_ADDRESS IMMUNOPLEX_HOSTNAME
               fallthrough
         }
     }

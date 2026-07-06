@@ -1,0 +1,6 @@
+# Normalise all text to LF so manifests/scripts run correctly on Linux.
+* text=auto eol=lf
+*.sql text eol=lf
+*.yml text eol=lf
+*.md  text eol=lf
+*.sh  text eol=lf

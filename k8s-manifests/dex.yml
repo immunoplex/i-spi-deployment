@@ -1,3 +1,16 @@
+# =============================================================================
+# Dex — STANDALONE I-SPI scope
+#
+# Identical to the repo's dex.yml except the staticClient redirectURIs are
+# trimmed to only what a standalone I-SPI install needs:
+#   - the whoami callback (kept so you can verify the auth chain before I-SPI)
+#   - the two I-SPI URIs
+# The two Data Portal redirect URIs have been removed.
+#
+# Air-gap note: the init container downloads the customized Dex web theme
+# (web.zip) from GitHub on first start. For an offline install, pre-seed the
+# `dex` PVC with the unpacked `web/` directory at /var/dex/web first.
+# =============================================================================
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
@@ -18,7 +31,7 @@ metadata:
     app: dex
 stringData:
   config.yml: |
-    issuer: https://IMMUNOODLE_HOSTNAME/dex
+    issuer: https://IMMUNOPLEX_HOSTNAME/dex
     storage:
       type: sqlite3
       config:
@@ -29,15 +42,13 @@ stringData:
       addr: 0.0.0.0:5557
       reflection: true
     staticClients:
-    - name: 'Immunoodle'
-      id: IMMUNOODLE_OAUTH_CLIENT_ID
-      secret: IMMUNOODLE_OAUTH_SECRET
+    - name: 'ImmunoPlex'
+      id: IMMUNOPLEX_OAUTH_CLIENT_ID
+      secret: IMMUNOPLEX_OAUTH_SECRET
       redirectURIs:
-      - 'https://IMMUNOODLE_HOSTNAME/whoami/oauth2/callback'
-      - 'https://IMMUNOODLE_HOSTNAME/data-portal/'
-      - 'https://IMMUNOODLE_HOSTNAME/data-portal/callback'
-      - 'https://IMMUNOODLE_HOSTNAME/i-spi/'
-      - 'https://IMMUNOODLE_HOSTNAME/i-spi/callback'
+      - 'https://IMMUNOPLEX_HOSTNAME/whoami/oauth2/callback'
+      - 'https://IMMUNOPLEX_HOSTNAME/i-spi/'
+      - 'https://IMMUNOPLEX_HOSTNAME/i-spi/callback'
     enablePasswordDB: true
     oauth2:
       passwordConnector: local
@@ -70,7 +81,7 @@ metadata:
    name: dex
    annotations:
      cert-manager.io/cluster-issuer: intermediate-ca1-issuer
-     cert-manager.io/common-name: "IMMUNOODLE_HOSTNAME"
+     cert-manager.io/common-name: "IMMUNOPLEX_HOSTNAME"
      kubernetes.io/ingress.class: traefik
      traefik.ingress.kubernetes.io/router.tls: "true"
 spec:
@@ -86,7 +97,7 @@ spec:
               number: 5556
   tls:
   - hosts:
-    - IMMUNOODLE_HOSTNAME
+    - IMMUNOPLEX_HOSTNAME
     secretName: cert-secret
 ---
 apiVersion: apps/v1
@@ -118,7 +129,7 @@ spec:
           - |
             if [ ! -d /var/www/web ]; then
               cd /var/dex
-              wget https://github.com/immunoodle/deployment/raw/refs/heads/main/templates/web.zip
+              wget https://github.com/immunoplex/deployment/raw/refs/heads/main/templates/web.zip
               unzip -q web.zip
               rm web.zip
             else
@@ -171,7 +182,7 @@ metadata:
   annotations:
     traefik.ingress.kubernetes.io/router.middlewares: dex-account-stripprefix@file
     cert-manager.io/cluster-issuer: intermediate-ca1-issuer
-    cert-manager.io/common-name: "IMMUNOODLE_HOSTNAME"
+    cert-manager.io/common-name: "IMMUNOPLEX_HOSTNAME"
     kubernetes.io/ingress.class: traefik
     traefik.ingress.kubernetes.io/router.tls: "true"
 spec:
@@ -187,7 +198,7 @@ spec:
               number: 8080
   tls:
   - hosts:
-    - IMMUNOODLE_HOSTNAME
+    - IMMUNOPLEX_HOSTNAME
     secretName: cert-secret
 ---
 apiVersion: apps/v1
@@ -209,12 +220,12 @@ spec:
         app: dex-account
     spec:
       containers:
-      - image: ghcr.io/immunoodle/signup:main
+      - image: ghcr.io/immunoplex/signup:main
         imagePullPolicy: Always
         name: dex-account
         env:
         - name: REDIRECT_URL_AFTER_SIGNUP
-          value: "https://IMMUNOODLE_HOSTNAME/whoami"
+          value: "https://IMMUNOPLEX_HOSTNAME/whoami"
         - name: GRPC_ADDRESS
           value: "dex:5557"
         ports:

@@ -1,3 +1,12 @@
+# =============================================================================
+# Traefik — STANDALONE I-SPI scope
+#
+# Identical to the repo's traefik.yml except the unused `data-portal-stripprefix`
+# middleware has been removed (Data Portal is not deployed in a standalone
+# install). All other middlewares are retained: forcehttpsredirect and
+# addslashbyredirect are general, dex-account-stripprefix is needed by the Dex
+# signup UI, and i-spi-stripprefix is needed by I-SPI.
+# =============================================================================
 ---
 apiVersion: v1
 kind: ServiceAccount
@@ -33,7 +42,7 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: traefik-account
-    namespace: immunoodle
+    namespace: immunoplex
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -51,11 +60,6 @@ data:
           stripPrefix:
             prefixes:
               - "/dex/account"
-            forceSlash: false
-        data-portal-stripprefix:
-          stripPrefix:
-            prefixes:
-              - "/data-portal"
             forceSlash: false
         i-spi-stripprefix:
           stripPrefix:
@@ -108,7 +112,7 @@ spec:
             - --entryPoints.websecure.address=:443/tcp
             - --providers.kubernetesingress
             - --providers.kubernetesingress.disableclusterscoperesources
-            - --providers.kubernetesingress.namespaces=immunoodle
+            - --providers.kubernetesingress.namespaces=immunoplex
             - --providers.file.filename=/opt/traefik-extra-config.yml
             - --log.level=INFO
             - --accesslog=true
