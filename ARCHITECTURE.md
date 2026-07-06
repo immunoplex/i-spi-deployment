@@ -83,8 +83,8 @@ flowchart TB
     ISPI -- "fit + read/write results (madi_results)" --> PG
 
     BCWK -. "same DB, if deployed" .-> PG
-    BCAPI -. BRD
-    BCWK -. BRD
+    BCAPI -. "job queue" .-> BRD
+    BCWK -. "job queue" .-> BRD
 ```
 
 | Component | Image | Port(s) | Persists data? | Depends on | Role |
@@ -380,3 +380,24 @@ drive it.)
   considerations of a Shiny app), but does not speed up a single fit. PostgreSQL and Dex (SQLite)
   are single-instance (`strategy: Recreate`) and not built for multi-replica here. Only if you
   adopt the optional external Batch Calculator does horizontal worker scaling enter the picture.
+
+<!--
+  GitHub Pages (Jekyll) does not render Mermaid on its own: it emits each
+  fenced mermaid block as <code class="language-mermaid"> and leaves it as
+  text. The script below finds those blocks, converts them to the <pre class="mermaid">
+  form Mermaid expects, and renders them. On github.com the fenced blocks render
+  natively and this script is ignored, so the file works in both places.
+-->
+<script type="module">
+  import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+
+  document.querySelectorAll('.language-mermaid').forEach((block) => {
+    const pre = document.createElement('pre');
+    pre.className = 'mermaid';
+    pre.textContent = block.textContent;
+    block.replaceWith(pre);
+  });
+
+  mermaid.initialize({ startOnLoad: false });
+  await mermaid.run({ querySelector: 'pre.mermaid' });
+</script>
