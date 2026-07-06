@@ -44,48 +44,7 @@ Everything runs in one Kubernetes namespace (`immunoplex`) as ordinary `Deployme
 `Service` pairs, with `PersistentVolumeClaim`s for the few things that must survive a restart.
 No operator, no Helm, no service mesh — plain YAML applied with `kubectl`.
 
-```mermaid
-flowchart TB
-    User([Researcher in a browser])
-
-    subgraph edge["Edge / Ingress"]
-        TR["Traefik<br/>LoadBalancer :80 / :443<br/>TLS termination + routing"]
-    end
-
-    subgraph auth["Authentication (SSO)"]
-        DEX["Dex<br/>OIDC provider :5556 / gRPC :5557"]
-        SIGNUP["dex-account (signup UI) :8080"]
-        WHO["whoami (optional test harness)"]
-    end
-
-    subgraph app["Application"]
-        ISPI["I-SPI Shiny app :3838<br/>in-process fitting:<br/>stanassay/Stan + JAGS via future"]
-    end
-
-    subgraph data["Data"]
-        PG[("PostgreSQL :5432<br/>TLS, hardened<br/>db: immunoplex / madi_results")]
-    end
-
-    subgraph batch["batch-calculator.yml (OPTIONAL — not invoked by this I-SPI build)"]
-        BCAPI["batch-calculator-api :8000"]
-        BRD[("batch-calculator-redis :6379")]
-        BCWK["batch-calculator-worker"]
-    end
-
-    User --> TR
-    TR --> DEX
-    TR --> SIGNUP
-    TR --> WHO
-    TR --> ISPI
-
-    ISPI --> DEX
-    WHO --> DEX
-    ISPI -- "fit + read/write results (madi_results)" --> PG
-
-    BCWK -. "same DB, if deployed" .-> PG
-    BCAPI -. "job queue" .-> BRD
-    BCWK -. "job queue" .-> BRD
-```
+![Standalone I-SPI runtime architecture: a researcher's browser enters through the edge (Traefik), authenticates via the SSO layer (Dex, dex-account, optional whoami), reaches the I-SPI application, which reads and writes PostgreSQL. The optional Batch Calculator is set apart and not invoked by this build.](architecture.svg)
 
 | Component | Image | Port(s) | Persists data? | Depends on | Role |
 |---|---|---|---|---|---|
@@ -185,25 +144,7 @@ auth chain works before deploying I-SPI — deploy it during bring-up, then dele
 
 I-SPI speaks OIDC natively (it holds the client secret), so it needs no proxy in front of it.
 
-```mermaid
-sequenceDiagram
-    participant B as Browser
-    participant T as Traefik
-    participant A as I-SPI
-    participant D as Dex
-    B->>T: GET /i-spi/ (no session)
-    T->>A: forward
-    A-->>B: 302 redirect to Dex authorize
-    B->>T: GET /dex/auth
-    T->>D: forward
-    D-->>B: login / signup form
-    B->>D: submit credentials
-    D-->>B: 302 back with auth code
-    B->>A: redirect with code
-    A->>D: exchange code for token (server-to-server)
-    D-->>A: id_token (email, profile)
-    A-->>B: set session, serve I-SPI
-```
+![OIDC single sign-on login flow: the browser is redirected through Traefik to Dex to authenticate, then back to I-SPI, which exchanges the auth code for an id_token server-to-server and establishes the session.](auth-sequence.svg)
 
 A subtlety: the redirect to Dex must use the **public** URL (`https://HOST/dex`) because the
 browser follows it, while the server-to-server token exchange uses the **internal** service URL
@@ -331,17 +272,7 @@ fitting is in-process (§3.4, §3.5). Those speculative lines have been removed 
 
 Apply bottom-up so each consumer's dependency is already answering when it starts.
 
-```mermaid
-flowchart LR
-    NS[Namespace] --> CM[cert-manager + PKI]
-    CM --> DNS[CoreDNS]
-    DNS --> TR[Traefik]
-    TR --> DEX[Dex + signup]
-    DEX --> WHO[whoami<br/>verify SSO]
-    WHO --> PG[PostgreSQL]
-    PG --> ISPI[I-SPI<br/>in-process fitting]
-    ISPI -.-> BC[batch-calculator.yml<br/>OPTIONAL]
-```
+![Deployment order, applied bottom-up: Namespace, then cert-manager and PKI, CoreDNS, Traefik, Dex and signup, whoami (verify then delete), PostgreSQL, then I-SPI for a working instance. The optional Batch Calculator is the last step.](deployment-order.svg)
 
 In words: namespace and (on K3s) cert-manager + the CA + CoreDNS first; then Traefik; then Dex
 and signup; verify with whoami; then PostgreSQL (create the `immunoplex` database and load
@@ -381,23 +312,3 @@ drive it.)
   are single-instance (`strategy: Recreate`) and not built for multi-replica here. Only if you
   adopt the optional external Batch Calculator does horizontal worker scaling enter the picture.
 
-<!--
-  GitHub Pages (Jekyll) does not render Mermaid on its own: it emits each
-  fenced mermaid block as <code class="language-mermaid"> and leaves it as
-  text. The script below finds those blocks, converts them to the <pre class="mermaid">
-  form Mermaid expects, and renders them. On github.com the fenced blocks render
-  natively and this script is ignored, so the file works in both places.
--->
-<script type="module">
-  import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
-
-  document.querySelectorAll('.language-mermaid').forEach((block) => {
-    const pre = document.createElement('pre');
-    pre.className = 'mermaid';
-    pre.textContent = block.textContent;
-    block.replaceWith(pre);
-  });
-
-  mermaid.initialize({ startOnLoad: false });
-  await mermaid.run({ querySelector: 'pre.mermaid' });
-</script>

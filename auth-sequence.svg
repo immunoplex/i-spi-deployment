@@ -1,0 +1,71 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 620" width="920" height="620" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="sah" markerWidth="10" markerHeight="10" refX="7.5" refY="3" orient="auto" markerUnits="userSpaceOnUse">
+      <path d="M0,0 L7.5,3 L0,6 Z" fill="#475569"/>
+    </marker>
+  </defs>
+
+  <rect x="6" y="6" width="908" height="608" rx="16" fill="#ffffff" stroke="#e2e8f0" stroke-width="2"/>
+  <text x="32" y="40" font-size="20" font-weight="700" fill="#0f172a">OIDC single sign-on &#8212; login flow</text>
+  <text x="32" y="60" font-size="12" fill="#94a3b8">solid = request &#183; dashed = response</text>
+
+  <!-- lifelines -->
+  <!-- Browser x=120, Traefik x=370, I-SPI x=620, Dex x=850 -->
+  <line x1="120" y1="112" x2="120" y2="576" stroke="#cbd5e1" stroke-width="1.5"/>
+  <line x1="370" y1="112" x2="370" y2="576" stroke="#cbd5e1" stroke-width="1.5"/>
+  <line x1="620" y1="112" x2="620" y2="576" stroke="#cbd5e1" stroke-width="1.5"/>
+  <line x1="850" y1="112" x2="850" y2="576" stroke="#cbd5e1" stroke-width="1.5"/>
+
+  <!-- participant heads -->
+  <g font-size="13" font-weight="600" text-anchor="middle" fill="#0f172a">
+    <rect x="60" y="80" width="120" height="34" rx="8" fill="#eff6ff" stroke="#93c5fd" stroke-width="1.5"/>
+    <text x="120" y="102">Browser</text>
+    <rect x="310" y="80" width="120" height="34" rx="8" fill="#eff6ff" stroke="#93c5fd" stroke-width="1.5"/>
+    <text x="370" y="102">Traefik</text>
+    <rect x="560" y="80" width="120" height="34" rx="8" fill="#ecfdf5" stroke="#6ee7b7" stroke-width="1.5"/>
+    <text x="620" y="102">I-SPI</text>
+    <rect x="790" y="80" width="120" height="34" rx="8" fill="#f5f3ff" stroke="#c4b5fd" stroke-width="1.5"/>
+    <text x="850" y="102">Dex</text>
+  </g>
+
+  <!-- messages: solid = request (#475569), dashed = response -->
+  <g font-size="11.5" fill="#334155">
+    <!-- 1 B->T -->
+    <line x1="120" y1="146" x2="368" y2="146" stroke="#475569" stroke-width="1.75" marker-end="url(#sah)"/>
+    <text x="130" y="140">GET /i-spi/, no session</text>
+    <!-- 2 T->A -->
+    <line x1="370" y1="180" x2="618" y2="180" stroke="#475569" stroke-width="1.75" marker-end="url(#sah)"/>
+    <text x="380" y="174">forward</text>
+    <!-- 3 A-->B (response) -->
+    <line x1="620" y1="214" x2="122" y2="214" stroke="#475569" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#sah)"/>
+    <text x="130" y="208">302 redirect to Dex authorize</text>
+    <!-- 4 B->T -->
+    <line x1="120" y1="248" x2="368" y2="248" stroke="#475569" stroke-width="1.75" marker-end="url(#sah)"/>
+    <text x="130" y="242">GET /dex/auth</text>
+    <!-- 5 T->D -->
+    <line x1="370" y1="282" x2="848" y2="282" stroke="#475569" stroke-width="1.75" marker-end="url(#sah)"/>
+    <text x="380" y="276">forward</text>
+    <!-- 6 D-->B (response) -->
+    <line x1="850" y1="316" x2="122" y2="316" stroke="#475569" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#sah)"/>
+    <text x="130" y="310">login or signup form</text>
+    <!-- 7 B->D -->
+    <line x1="120" y1="350" x2="848" y2="350" stroke="#475569" stroke-width="1.75" marker-end="url(#sah)"/>
+    <text x="130" y="344">submit credentials</text>
+    <!-- 8 D-->B (response) -->
+    <line x1="850" y1="384" x2="122" y2="384" stroke="#475569" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#sah)"/>
+    <text x="130" y="378">302 back with auth code</text>
+    <!-- 9 B->A -->
+    <line x1="120" y1="418" x2="618" y2="418" stroke="#475569" stroke-width="1.75" marker-end="url(#sah)"/>
+    <text x="130" y="412">redirect with code</text>
+    <!-- 10 A->D -->
+    <line x1="620" y1="452" x2="848" y2="452" stroke="#475569" stroke-width="1.75" marker-end="url(#sah)"/>
+    <text x="630" y="446">exchange code for token</text>
+    <text x="630" y="466" font-size="10.5" fill="#64748b">(server-to-server)</text>
+    <!-- 11 D-->A (response) -->
+    <line x1="850" y1="500" x2="622" y2="500" stroke="#475569" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#sah)"/>
+    <text x="622" y="494">id_token: email, profile</text>
+    <!-- 12 A-->B (response) -->
+    <line x1="620" y1="540" x2="122" y2="540" stroke="#475569" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#sah)"/>
+    <text x="130" y="534">set session, serve I-SPI</text>
+  </g>
+</svg>

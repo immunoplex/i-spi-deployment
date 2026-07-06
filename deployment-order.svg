@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 460 700" width="460" height="700" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="dah" markerWidth="10" markerHeight="10" refX="7.5" refY="3" orient="auto" markerUnits="userSpaceOnUse">
+      <path d="M0,0 L7.5,3 L0,6 Z" fill="#475569"/>
+    </marker>
+    <marker id="dahd" markerWidth="10" markerHeight="10" refX="7.5" refY="3" orient="auto" markerUnits="userSpaceOnUse">
+      <path d="M0,0 L7.5,3 L0,6 Z" fill="#94a3b8"/>
+    </marker>
+  </defs>
+
+  <rect x="6" y="6" width="448" height="688" rx="16" fill="#ffffff" stroke="#e2e8f0" stroke-width="2"/>
+  <text x="30" y="40" font-size="19" font-weight="700" fill="#0f172a">Deployment order</text>
+  <text x="30" y="60" font-size="12" fill="#94a3b8">apply bottom-up; wait for ready before the next</text>
+
+  <!-- nodes: cx=230, w=300, h=44, top starts y=84, step 68 -->
+  <g text-anchor="middle">
+    <!-- 1 -->
+    <rect x="80" y="84" width="300" height="44" rx="10" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.5"/>
+    <text x="230" y="111" font-size="14" font-weight="600" fill="#0f172a">Namespace</text>
+    <!-- 2 -->
+    <rect x="80" y="152" width="300" height="44" rx="10" fill="#eff6ff" stroke="#93c5fd" stroke-width="1.5"/>
+    <text x="230" y="179" font-size="14" font-weight="600" fill="#0f172a">cert-manager + PKI</text>
+    <!-- 3 -->
+    <rect x="80" y="220" width="300" height="44" rx="10" fill="#eff6ff" stroke="#93c5fd" stroke-width="1.5"/>
+    <text x="230" y="247" font-size="14" font-weight="600" fill="#0f172a">CoreDNS</text>
+    <!-- 4 -->
+    <rect x="80" y="288" width="300" height="44" rx="10" fill="#eff6ff" stroke="#3b82f6" stroke-width="1.5"/>
+    <text x="230" y="315" font-size="14" font-weight="600" fill="#0f172a">Traefik</text>
+    <!-- 5 -->
+    <rect x="80" y="356" width="300" height="44" rx="10" fill="#f5f3ff" stroke="#8b5cf6" stroke-width="1.5"/>
+    <text x="230" y="383" font-size="14" font-weight="600" fill="#0f172a">Dex + signup</text>
+    <!-- 6 -->
+    <rect x="80" y="424" width="300" height="44" rx="10" fill="#f5f3ff" stroke="#c4b5fd" stroke-width="1.5" stroke-dasharray="5 4"/>
+    <text x="230" y="446" font-size="14" font-weight="600" fill="#0f172a">whoami</text>
+    <text x="230" y="461" font-size="10.5" fill="#64748b">verify SSO, then delete</text>
+    <!-- 7 -->
+    <rect x="80" y="492" width="300" height="44" rx="10" fill="#fffbeb" stroke="#f59e0b" stroke-width="1.5"/>
+    <text x="230" y="519" font-size="14" font-weight="600" fill="#0f172a">PostgreSQL</text>
+    <!-- 8 -->
+    <rect x="80" y="560" width="300" height="44" rx="10" fill="#ecfdf5" stroke="#10b981" stroke-width="1.5"/>
+    <text x="230" y="582" font-size="14" font-weight="600" fill="#0f172a">I-SPI</text>
+    <text x="230" y="597" font-size="10.5" fill="#64748b">in-process fitting &#8212; working instance</text>
+    <!-- 9 optional -->
+    <rect x="80" y="632" width="300" height="44" rx="10" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="6 4"/>
+    <text x="230" y="654" font-size="14" font-weight="600" fill="#334155">batch-calculator.yml</text>
+    <text x="230" y="669" font-size="10.5" fill="#94a3b8">OPTIONAL &#183; only if I-SPI offloads to it</text>
+  </g>
+
+  <!-- arrows -->
+  <g>
+    <line x1="230" y1="128" x2="230" y2="150" stroke="#475569" stroke-width="2" marker-end="url(#dah)"/>
+    <line x1="230" y1="196" x2="230" y2="218" stroke="#475569" stroke-width="2" marker-end="url(#dah)"/>
+    <line x1="230" y1="264" x2="230" y2="286" stroke="#475569" stroke-width="2" marker-end="url(#dah)"/>
+    <line x1="230" y1="332" x2="230" y2="354" stroke="#475569" stroke-width="2" marker-end="url(#dah)"/>
+    <line x1="230" y1="400" x2="230" y2="422" stroke="#475569" stroke-width="2" marker-end="url(#dah)"/>
+    <line x1="230" y1="468" x2="230" y2="490" stroke="#475569" stroke-width="2" marker-end="url(#dah)"/>
+    <line x1="230" y1="536" x2="230" y2="558" stroke="#475569" stroke-width="2" marker-end="url(#dah)"/>
+    <line x1="230" y1="604" x2="230" y2="630" stroke="#94a3b8" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#dahd)"/>
+  </g>
+</svg>
