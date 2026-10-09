@@ -23,12 +23,14 @@ You will need:
 
 - A Linux host you can `sudo` on. Tested distros: **Rocky 8/9, Ubuntu 24.04**. A VM (VirtualBox,
   UTM, KVM, Hyper-V, cloud-agnostic) or bare metal both work.
-- **Sizing.** I-SPI does its curve fitting **in-process** (stanassay/Stan + JAGS via `future`), so
-  it is the CPU/memory-heavy component. The repo floor is 4 vCPU / 16 GB, but for a test that
-  actually exercises fitting, target **≥ 8 vCPU, ≥ 16 GB RAM (32 GB preferred), ≥ 100 GB disk**.
-  The disk matters: K3s's local-path provisioner backs the PostgreSQL (20 GB) and Dex (1 GB) PVCs
-  on the node's own disk, alongside container images and the database dump. See `ARCHITECTURE.md`
-  §2.5.
+- **Sizing.** I-SPI does **not** fit curves itself — it submits jobs to the required
+  **i-spi-compute** tier (API + dedicated Redis + curveR worker), and the **worker** is the
+  CPU/memory-heavy component. This is a single-node test, so I-SPI, i-spi-compute, and
+  PostgreSQL all share the node — size for the worker, not for I-SPI. The repo floor is 4 vCPU /
+  16 GB, but for a test that actually exercises fitting, target **≥ 8 vCPU, ≥ 16 GB RAM (32 GB
+  preferred), ≥ 100 GB disk**. The disk matters: K3s's local-path provisioner backs the
+  PostgreSQL (20 GB) and Dex (1 GB) PVCs on the node's own disk, alongside container images and
+  the database dump. See `ARCHITECTURE.md` §2.5.
 - The deployment repo, the **`i-spi-db.sql`** dump, and the corrected standalone manifests from
   this folder — present on the node (Phase 5).
 - A decision on **hostname** (Phase 2) — the single most important choice, because it is baked
@@ -98,8 +100,9 @@ export ISPI_IP="<NODE_IP>"       # the node's IP address
 
 1. **On a connected machine**, follow `OFFLINE-IMAGES.md` to `docker pull` and `docker save` the
    images this standalone install needs. The core set is Traefik, Dex, `busybox`, the signup UI,
-   PostgreSQL, and I-SPI; add the whoami harness and/or Batch Calculator images only if you plan
-   to deploy those. That doc lists the exact tags, matched to these manifests.
+   PostgreSQL, I-SPI, and the i-spi-compute images (`redis:7`, `i-spi-compute-api`,
+   `i-spi-compute-worker` — required, not optional); add the whoami harness images only if you
+   plan to deploy that test harness. That doc lists the exact tags, matched to these manifests.
 
 2. **Also stage the cluster prerequisites** (`OFFLINE-IMAGES.md` §2):
    - The **K3s** binary and the `k3s-airgap-images-<arch>.tar.zst` bundle for `v1.33.5+k3s1`.
@@ -184,9 +187,14 @@ OAUTH_SECRET=$(openssl rand -hex 32); sed -i "s/IMMUNOPLEX_OAUTH_SECRET/$OAUTH_S
 sed -i "s/IMMUNOPLEX_OAUTH_COOKIE_SECRET/$(openssl rand -hex 16)/g" *.yml
 ```
 
-Only add the `IMMUNOPLEX_REDIS_AUTH` and `IMMUNOPLEX_API_KEY` substitutions if you also intend to
-deploy the optional `batch-calculator.yml` (this I-SPI build fits in-process and does not call
-that service — see `ARCHITECTURE.md` §3.5).
+The `IMMUNOPLEX_REDIS_AUTH` and `IMMUNOPLEX_API_KEY` substitutions above are **required** —
+they provision the `i-spi-compute` Secret that the required fitting tier uses (not the retired,
+optional Batch Calculator; see `ARCHITECTURE.md`):
+
+```shell
+sed -i "s/IMMUNOPLEX_API_KEY/$(openssl rand -hex 32)/g"   i-spi.yml i-spi-compute.yml
+sed -i "s/IMMUNOPLEX_REDIS_AUTH/$(openssl rand -hex 32)/g" i-spi-compute.yml
+```
 
 **Offline hosts, two extra edits:**
 
@@ -225,14 +233,24 @@ sudo kubectl -n immunoplex apply -f postgresql.yml
 sudo kubectl -n immunoplex wait --for=condition=ready pod -l app=postgresql --timeout=5m
 sudo kubectl -n immunoplex exec -it deploy/postgresql -- psql -U postgres -c "CREATE DATABASE immunoplex;"
 sudo kubectl -n immunoplex exec -i deploy/postgresql -- psql -U postgres immunoplex < ../db-dumps/i-spi-db.sql
+# Apply the compute-tier's own schema once (curve fits / concentration results --
+# NOT included in i-spi-db.sql; vendored here from i-spi-compute/db/calib_schema_v1.sql,
+# keep it in sync with that repo if the schema changes):
+sudo kubectl -n immunoplex exec -i deploy/postgresql -- psql -U postgres immunoplex < ../db-dumps/calib_schema_v1.sql
+
+# i-spi-compute (REQUIRED -- I-SPI submits fit jobs here; apply and wait before I-SPI)
+sudo kubectl -n immunoplex apply -f i-spi-compute.yml
+sudo kubectl -n immunoplex wait --for=condition=ready pod -l app=i-spi-compute-redis --timeout=5m
+sudo kubectl -n immunoplex wait --for=condition=ready pod -l app=i-spi-compute-api --timeout=5m
+sudo kubectl -n immunoplex wait --for=condition=ready pod -l app=i-spi-compute-worker --timeout=5m
 
 # I-SPI
 sudo kubectl -n immunoplex apply -f i-spi.yml
 sudo kubectl -n immunoplex wait --for=condition=ready pod -l app=i-spi --timeout=10m
 ```
 
-The Batch Calculator (`batch-calculator.yml`) is an **optional** last step and only meaningful if
-your I-SPI build offloads to it; for this build, skip it.
+`batch-calculator.yml` is **retired** — it's kept in this folder only as a deprecation stub
+explaining it's been replaced by i-spi-compute. Do not deploy it.
 
 ---
 
@@ -247,8 +265,11 @@ your I-SPI build offloads to it; for this build, skip it.
 4. **Database check:**
    `sudo kubectl -n immunoplex exec -it deploy/postgresql -- psql -U postgres -c "select version();"`
 5. **I-SPI:** browse to `https://$ISPI_HOST/i-spi/`, log in via Dex, and run a standard-curve fit.
-   When concentration / se_concentration / pcov results appear, the in-process fitting path is
-   working end to end.
+   When concentration / se_concentration / pcov results appear, the full chain is working end to
+   end: I-SPI → i-spi-compute API → i-spi-compute Redis → curveR worker → PostgreSQL → I-SPI. If
+   a job submits but never completes, check the worker pod's logs
+   (`kubectl -n immunoplex logs deploy/i-spi-compute-worker`) before assuming I-SPI itself is at
+   fault — a stuck job is almost always on the compute side.
 
 If login bounces or errors, it's almost always a hostname/redirect mismatch: confirm `$ISPI_HOST`
 is identical everywhere (node hosts file, client hosts file, `coredns.yml`, and the manifests) and

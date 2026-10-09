@@ -25,6 +25,9 @@ you bump a version in a `.yml`, bump it here too.
 | `ghcr.io/immunoplex/signup:main` | `dex.yml` (dex-account signup UI) |
 | `postgres:17.2` | `postgresql.yml` |
 | `ghcr.io/immunoplex/i-spi:main` | `i-spi.yml` |
+| `ghcr.io/immunoplex/i-spi-compute-api:main` | `i-spi-compute.yml` |
+| `ghcr.io/immunoplex/i-spi-compute-worker:main` | `i-spi-compute.yml` |
+| `redis:7` | `i-spi-compute.yml` (dedicated job queue) |
 
 ```shell
 docker pull traefik:v3.5.4
@@ -33,6 +36,9 @@ docker pull busybox
 docker pull ghcr.io/immunoplex/signup:main
 docker pull postgres:17.2
 docker pull ghcr.io/immunoplex/i-spi:main
+docker pull ghcr.io/immunoplex/i-spi-compute-api:main
+docker pull ghcr.io/immunoplex/i-spi-compute-worker:main
+docker pull redis:7
 ```
 
 ### Optional — whoami auth-chain test harness (`whoami.yml`)
@@ -44,20 +50,10 @@ docker pull traefik/whoami
 docker pull quay.io/oauth2-proxy/oauth2-proxy:v7.8.1
 ```
 
-### Optional — external Batch Calculator (`batch-calculator.yml`)
-
-Only if your I-SPI build offloads fitting to the external Batch Calculator. The provided I-SPI
-build fits **in-process** and does not need these (see `ARCHITECTURE.md` §3.5).
-
-```shell
-docker pull redis:7
-docker pull ghcr.io/immunoplex/immunoplex-batch-cal-api:main
-docker pull ghcr.io/immunoplex/immunoplex-batch-cal-worker:main
-```
-
-> Images the standalone install does **not** use (and that earlier versions of this list wrongly
-> included): `redis:8` (the main Redis is not part of a standalone install), and
-> `quay.io/minio/minio:*` (MinIO / object storage is out of scope). Don't ship them.
+> Images the standalone install does **not** use: `redis:8` (the platform's main Redis is not
+> part of a standalone install), `quay.io/minio/minio:*` (MinIO / object storage is out of
+> scope), and the retired `immunoplex-batch-cal-*` images (replaced by the i-spi-compute images
+> listed under **Core** above). Don't ship them.
 
 ## 2. Cluster-prerequisite images (only if you are also building the cluster offline)
 
@@ -89,13 +85,12 @@ docker save -o busybox.tar          busybox
 docker save -o signup.tar           ghcr.io/immunoplex/signup:main
 docker save -o postgres.tar         postgres:17.2
 docker save -o i-spi.tar            ghcr.io/immunoplex/i-spi:main
+docker save -o i-spi-compute-api.tar    ghcr.io/immunoplex/i-spi-compute-api:main
+docker save -o i-spi-compute-worker.tar ghcr.io/immunoplex/i-spi-compute-worker:main
+docker save -o redis.tar            redis:7
 # optional whoami harness:
 docker save -o whoami.tar           traefik/whoami
 docker save -o oauth2-proxy.tar     quay.io/oauth2-proxy/oauth2-proxy:v7.8.1
-# optional batch calculator:
-docker save -o redis.tar            redis:7
-docker save -o batch-cal-api.tar    ghcr.io/immunoplex/immunoplex-batch-cal-api:main
-docker save -o batch-cal-worker.tar ghcr.io/immunoplex/immunoplex-batch-cal-worker:main
 ```
 
 Transfer the tarballs to the target host (USB drive, internal artifact store, etc.).

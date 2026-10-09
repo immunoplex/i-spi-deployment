@@ -37,9 +37,13 @@ You will need:
 - A decision on **hostname** (see Phase 2) — the single most important choice, because it is
   baked into every OAuth redirect URL.
 
-**Sizing.** I-SPI does its curve fitting **in-process** (stanassay/Stan + JAGS via `future`), so
-the node must be comfortably above the repo's 4-core / 16 GB floor. For a test that actually
-exercises fitting, target **≥ 8 vCPU, ≥ 16 GB RAM (32 GB preferred), ≥ 100 GB disk**. The disk
+**Sizing.** I-SPI does **not** fit curves itself — it submits jobs to the required
+**i-spi-compute** tier (API + dedicated Redis + curveR worker; see `i-spi-compute.yml` and
+`ARCHITECTURE.md`), and the **worker** (frequentist robust curves plus the Bayesian Stan/JAGS
+ensemble) is the CPU/memory-heavy piece. This is a single-node test, so I-SPI, i-spi-compute, and
+PostgreSQL all land on the SAME node — size for the worker, not for I-SPI. Target **≥ 8 vCPU,
+≥ 16 GB RAM (32 GB preferred), ≥ 100 GB disk**; the manifest's default worker sizing (`i-spi-compute.yml`,
+2 CPU / 4 GiB) fits comfortably on that, with room to raise it for a heavier fitting test. The disk
 matters: K3s's built-in local-path provisioner backs the PostgreSQL (20 GB) and Dex (1 GB) PVCs
 on the node's own disk, alongside container images and the database dump.
 
@@ -155,7 +159,9 @@ git clone https://github.com/immunoplex/deployment.git
 cd deployment
 
 # Overlay the corrected standalone manifests (from this folder) into k8s-manifests/,
-# replacing the repo's i-spi.yml, dex.yml, traefik.yml and adding batch-calculator.yml.
+# replacing the repo's i-spi.yml, dex.yml, traefik.yml and ADDING i-spi-compute.yml
+# (required -- see ARCHITECTURE.md) and the updated batch-calculator.yml
+# (retired/deprecation stub only; do not deploy it).
 # (scp them up, or git-add them to your fork.)
 ```
 
@@ -173,9 +179,14 @@ OAUTH_SECRET=$(openssl rand -hex 32); sed -i "s/IMMUNOPLEX_OAUTH_SECRET/$OAUTH_S
 sed -i "s/IMMUNOPLEX_OAUTH_COOKIE_SECRET/$(openssl rand -hex 16)/g" *.yml
 ```
 
-Only add the `IMMUNOPLEX_REDIS_AUTH` and `IMMUNOPLEX_API_KEY` substitutions if you also intend
-to deploy the optional `batch-calculator.yml` (this I-SPI build does its fitting in-process and
-does not call that service — see `ARCHITECTURE.md` §3.5).
+The `IMMUNOPLEX_REDIS_AUTH` and `IMMUNOPLEX_API_KEY` substitutions above are **required** —
+they provision the `i-spi-compute` Secret that the required fitting tier uses (not the retired,
+optional Batch Calculator; see `ARCHITECTURE.md`):
+
+```shell
+sed -i "s/IMMUNOPLEX_API_KEY/$(openssl rand -hex 32)/g"   i-spi.yml i-spi-compute.yml
+sed -i "s/IMMUNOPLEX_REDIS_AUTH/$(openssl rand -hex 32)/g" i-spi-compute.yml
+```
 
 > The substituted files now contain real secrets — don't commit them.
 
@@ -203,14 +214,24 @@ sudo kubectl -n immunoplex apply -f postgresql.yml
 sudo kubectl -n immunoplex wait --for=condition=ready pod -l app=postgresql --timeout=5m
 sudo kubectl -n immunoplex exec -it deploy/postgresql -- psql -U postgres -c "CREATE DATABASE immunoplex;"
 sudo kubectl -n immunoplex exec -i deploy/postgresql -- psql -U postgres immunoplex < ../db-dumps/i-spi-db.sql
+# Apply the compute-tier's own schema once (curve fits / concentration results --
+# NOT included in i-spi-db.sql; vendored here from i-spi-compute/db/calib_schema_v1.sql,
+# keep it in sync with that repo if the schema changes):
+sudo kubectl -n immunoplex exec -i deploy/postgresql -- psql -U postgres immunoplex < ../db-dumps/calib_schema_v1.sql
+
+# i-spi-compute (REQUIRED -- I-SPI submits fit jobs here; apply and wait before I-SPI)
+sudo kubectl -n immunoplex apply -f i-spi-compute.yml
+sudo kubectl -n immunoplex wait --for=condition=ready pod -l app=i-spi-compute-redis --timeout=5m
+sudo kubectl -n immunoplex wait --for=condition=ready pod -l app=i-spi-compute-api --timeout=5m
+sudo kubectl -n immunoplex wait --for=condition=ready pod -l app=i-spi-compute-worker --timeout=5m
 
 # I-SPI
 sudo kubectl -n immunoplex apply -f i-spi.yml
 sudo kubectl -n immunoplex wait --for=condition=ready pod -l app=i-spi --timeout=10m
 ```
 
-The Batch Calculator (`batch-calculator.yml`) is an **optional** last step and only meaningful
-if your I-SPI build offloads to it; for this build, skip it.
+`batch-calculator.yml` is **retired** — it's kept in this folder only as a deprecation stub
+explaining it's been replaced by i-spi-compute. Do not deploy it.
 
 If the air gap matters later, see `OFFLINE-IMAGES.md` — but a test on Civo has internet egress, so
 images pull normally.
@@ -226,8 +247,11 @@ images pull normally.
 3. **Database check:**
    `sudo kubectl -n immunoplex exec -it deploy/postgresql -- psql -U postgres -c "select version();"`
 4. **I-SPI:** browse to `https://$ISPI_HOST/i-spi/`, log in via Dex, and run a standard-curve
-   fit. When concentration / se_concentration / pcov results appear, the in-process fitting path
-   is working end to end.
+   fit. When concentration / se_concentration / pcov results appear, the full chain is working
+   end to end: I-SPI → i-spi-compute API → i-spi-compute Redis → curveR worker → PostgreSQL → I-SPI.
+   If a job submits but never completes, check the worker pod's logs
+   (`kubectl -n immunoplex logs deploy/i-spi-compute-worker`) before assuming I-SPI itself is at
+   fault — a stuck job is almost always on the compute side.
 
 If login bounces or errors, it's almost always a hostname/redirect mismatch: confirm `$ISPI_HOST`
 is identical everywhere and that `APP_REDIRECT_URI` matches a URI registered in `dex.yml`. Flip

@@ -5,7 +5,8 @@
 # middleware has been removed (Data Portal is not deployed in a standalone
 # install). All other middlewares are retained: forcehttpsredirect and
 # addslashbyredirect are general, dex-account-stripprefix is needed by the Dex
-# signup UI, and i-spi-stripprefix is needed by I-SPI.
+# signup UI, i-spi-stripprefix is needed by I-SPI, and i-spi-compute-stripprefix
+# is needed by the required i-spi-compute fitting tier (i-spi-compute.yml).
 # =============================================================================
 ---
 apiVersion: v1
@@ -65,6 +66,11 @@ data:
           stripPrefix:
             prefixes:
               - "/i-spi"
+            forceSlash: false
+        i-spi-compute-stripprefix:
+          stripPrefix:
+            prefixes:
+              - "/i-spi-compute"
             forceSlash: false
         addslashbyredirect:
           redirectRegex:

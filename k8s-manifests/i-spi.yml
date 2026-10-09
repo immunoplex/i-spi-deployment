@@ -1,11 +1,9 @@
 # =============================================================================
-# I-SPI — STANDALONE deployment (corrected, with Batch Calculator support)
+# I-SPI — STANDALONE deployment (corrected; requires i-spi-compute)
 #
-# Runs I-SPI together with the Batch Calculator (curve fitting / concentration
-# calculation), but WITHOUT Data Portal, the ingest API/Worker, the main Redis,
-# or MinIO. The Batch Calculator (batch-calculator.yml) is self-contained apart
-# from PostgreSQL — it ships its own Redis — so no other excluded pieces are
-# pulled in.
+# Runs I-SPI together with its REQUIRED i-spi-compute fitting tier
+# (i-spi-compute.yml: API + dedicated Redis + curveR worker), but WITHOUT Data
+# Portal, the ingest API/Worker, the platform's main Redis, or MinIO.
 #
 # Corrections applied relative to the original manifest:
 #   1. DEX_CLIENT_SECRET now reads from this file's own `i-spi` Secret
@@ -23,21 +21,27 @@
 #      (madi-lumi-reader): added the uppercase "python engine" DB_* set and
 #      upload_template_path (both documented by the app), and confirmed the
 #      Dex/OIDC variables against app.R / auth_config.R.
+#   6. ISPI_COMPUTE_URL / ISPI_COMPUTE_API_KEY added (previously documented as
+#      a TODO in this file's comments but never actually wired into the
+#      Deployment's env — see 2026-10-09 reconciliation). I-SPI does not fit
+#      curves itself: see "Where fitting happens" below.
 #
-# Batch / Bayesian fitting: the provided I-SPI source runs ALL fitting and the
-# concentration / se_concentration / pcov computation IN-PROCESS (stanassay +
-# JAGS, parallelized with future), coordinating through the shared `immunoplex`
-# database (madi_results schema). It does NOT call the external
-# batch-calculator-api and reads no endpoint/key for it — so I-SPI itself is the
-# heavy compute component (see resources below) and there is no batch wiring to
-# set here. Whether to also deploy batch-calculator.yml is a separate decision;
-# see ARCHITECTURE.md §3.5.
+# Where fitting happens: I-SPI submits fit requests over HTTP to the
+# i-spi-compute API (compute_api_client.R), which queues them in i-spi-compute's
+# OWN dedicated Redis for the curveR worker; the worker runs the frequentist
+# robust curves and the Bayesian Stan/JAGS ensemble and writes results
+# (concentration / se_concentration / pcov) to the `calib_*` tables in the
+# shared `immunoplex` database, which I-SPI then reads back. I-SPI is therefore
+# NOT the CPU/memory-heavy component — the i-spi-compute WORKER is (see
+# i-spi-compute.yml and ARCHITECTURE.md §2.5 for its sizing). This replaces the
+# retired batch-calculator.yml, which is no longer deployed.
 #
 # Placeholders (IMMUNOPLEX_*) are intentionally preserved so this file still
-# works with the repo's `sed` configuration step. With the Batch Calculator,
-# substitute: IMMUNOPLEX_HOSTNAME, IMMUNOPLEX_POSTGRES_PASSWORD,
-# IMMUNOPLEX_OAUTH_CLIENT_ID, IMMUNOPLEX_OAUTH_SECRET, IMMUNOPLEX_API_KEY
-# (and IMMUNOPLEX_REDIS_AUTH, used by batch-calculator.yml).
+# works with the repo's `sed` configuration step. Substitute: IMMUNOPLEX_HOSTNAME,
+# IMMUNOPLEX_POSTGRES_PASSWORD, IMMUNOPLEX_OAUTH_CLIENT_ID, IMMUNOPLEX_OAUTH_SECRET.
+# IMMUNOPLEX_API_KEY and IMMUNOPLEX_REDIS_AUTH are substituted in
+# i-spi-compute.yml's own Secret (apply that file too — it's REQUIRED, not
+# optional) and this file's API_KEY below reads from that same Secret.
 # =============================================================================
 
 # ─── OAuth client secret (consumed by this Deployment) ───────────────────────
@@ -48,10 +52,6 @@ metadata:
   name: i-spi
 stringData:
   DEX_CLIENT_SECRET: IMMUNOPLEX_OAUTH_SECRET
-  # No API_KEY here: the provided I-SPI source does its fitting in-process and
-  # does not authenticate to the external batch-calculator-api. If a future build
-  # of I-SPI offloads to that service and needs the shared key, add:
-  #   API_KEY: IMMUNOPLEX_API_KEY   (matches batch-calculator.yml via sed)
 
 # ─── Ingress: https://HOST/i-spi ─────────────────────────────────────────────
 ---
@@ -121,21 +121,19 @@ spec:
       containers:
         - image: ghcr.io/immunoplex/i-spi:main
           name: i-spi
-          # CORRECTION 3: resources uncommented. Because fitting runs IN-PROCESS
-          # (stanassay/Stan + JAGS, parallelized with future multicore), I-SPI —
-          # not a separate worker — is the CPU- and memory-bound component. The
-          # original manifest's commented values requested 6 CPU / limited to 10,
-          # which reflects that reality. Values below are a schedulable starting
-          # point; raise them (and use a node bigger than the 4-core/16 GB floor)
-          # for real fitting workloads. `future` is configured for up to ~5 GB of
-          # globals, so keep memory generous.
+          # CORRECTION 3: resources uncommented. I-SPI itself is now a fairly
+          # light interactive Shiny front end -- it submits fit jobs and reads
+          # results, it does not fit them (the i-spi-compute WORKER is the
+          # CPU/memory-heavy component; see i-spi-compute.yml). Values below
+          # are modest and sized for concurrent users, not fitting; raise them
+          # if you have many simultaneous sessions, not for heavier fitting.
           resources:
             requests:
-              cpu: "2"
-              memory: "4Gi"
+              cpu: "500m"
+              memory: "1Gi"
             limits:
-              cpu: "8"
-              memory: "12Gi"
+              cpu: "2"
+              memory: "3Gi"
           env:
             # ── Database: R engine (lowercase) ────────────────────────────────
             - name: db
@@ -207,17 +205,18 @@ spec:
             # also omits other real vars, so the sample is not exhaustive. Kept.
             - name: DEX_INTERNAL_URL
               value: "http://dex:5556/dex"
-            # ── Batch / Bayesian fitting: runs IN-PROCESS ─────────────────────
-            # The I-SPI source (global.R, batch_fit_functions.R,
-            # bayes_concentration_functions.R) performs all curve fitting and the
-            # concentration / se_concentration / pcov computation INSIDE this pod:
-            # frequentist robust curves, JAGS MCMC (rjags), and the Bayesian
-            # ensemble via the `stanassay` package — all parallelized with the R
-            # `future` package (multicore). It coordinates job state through the
-            # shared `immunoplex` database (madi_results schema), and reads NO
-            # endpoint or API-key variable for the external batch-calculator-api
-            # service. There is therefore nothing to wire here; see ARCHITECTURE.md
-            # §3.5 on whether you also need to deploy batch-calculator.yml.
+            # ── i-spi-compute: the REQUIRED fitting tier (compute_api_client.R) ──
+            # I-SPI submits fit jobs here over HTTP (header X-API-Key); it does
+            # not fit curves itself. i-spi-compute.yml MUST be applied (see that
+            # file). ROOT_PATH there is /i-spi-compute, matching this URL's path
+            # and the Traefik ingress prefix.
+            - name: ISPI_COMPUTE_URL
+              value: "https://IMMUNOPLEX_HOSTNAME/i-spi-compute"
+            - name: ISPI_COMPUTE_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: i-spi-compute
+                  key: API_KEY
           ports:
           - containerPort: 3838
             name: shiny

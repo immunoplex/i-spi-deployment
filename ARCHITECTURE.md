@@ -4,13 +4,15 @@ This is the conceptual companion to [`README-STANDALONE-ISPI.md`](README-STANDAL
 The README is the runbook (which commands, in what order); this guide explains *what you are
 building, the choices behind it, and how the pieces fit together*.
 
-It describes a focused analysis instance: **I-SPI with its supporting edge, auth, and data
-layers**. I-SPI performs its standard-curve fitting and concentration calculations *in-process*
-(see §1 and §3.4), so a complete, working instance does **not** require any separate compute
-service. The repo's external **Batch Calculator** is included as an *optional* add-on for sites
-that want to offload fitting, but the provided I-SPI build does not invoke it (§3.5). Data
-Portal, the data-ingest API/Worker, the main Redis, and MinIO are out of scope — they belong to
-the data-sharing portal, not to a focused analysis instance.
+It describes a focused analysis instance: **I-SPI, its required i-spi-compute fitting tier, and
+their supporting edge, auth, and data layers**. I-SPI does **not** fit curves in-process: it
+enqueues fitting jobs to the **i-spi-compute** API, which queues them in Redis for a **curveR**
+worker that runs the fits and writes results to the database, which I-SPI then reads back (see
+§1 and §3.4–§3.5). A complete, working instance therefore requires i-spi-compute — it is not
+optional. The former external **Batch Calculator** (`batch-calculator.yml`) is **retired** and
+replaced by i-spi-compute. Data Portal, the platform's data-ingest API/Worker, the platform's
+main Redis, and MinIO are out of scope — they belong to the data-sharing portal, not to a
+focused analysis instance.
 
 > **A note on names.** The product is *ImmunoPlex*, and everything here now uses that name
 > consistently — the `immunoplex` Kubernetes namespace, the `immunoplex` database, the
@@ -27,24 +29,25 @@ visible application. Standing it up means deploying three supporting layers arou
 **edge / ingress** layer that terminates TLS and routes traffic, an **authentication** layer
 that gives every user a single sign-on identity, and a **data** layer.
 
-> **Where the heavy fitting runs — read this first.** The I-SPI source (`global.R`,
-> `batch_fit_functions.R`, `bayes_concentration_functions.R`) performs all standard-curve
-> fitting and the concentration / se_concentration / pcov computation **inside the I-SPI pod**:
-> frequentist robust curves, JAGS MCMC, and the Bayesian ensemble via the `stanassay` package,
-> all parallelized with the R `future` package across the pod's CPU cores. It coordinates job
-> state through the shared `immunoplex` database (`madi_results` schema). It does **not** call
-> the external `batch-calculator-api` service and reads no endpoint or key for it.
+> **Where the heavy fitting runs — read this first.** I-SPI does **not** fit curves itself.
+> When a user requests a fit, I-SPI's compute client (`compute_api_client.R`) **submits a job**
+> over HTTP to the **i-spi-compute API**; the API enqueues it in a dedicated **Redis** queue; and
+> the **curveR worker** runs the frequentist robust curves and the Bayesian Stan/JAGS ensemble,
+> writing the fits and the concentration / se_concentration / pcov results to the `calib_*`
+> tables in the shared `immunoplex` database. I-SPI then **reads those results back** from the
+> database to display them. The chain is:
 >
-> So "batch fitting" here means in-process batch processing, and **I-SPI itself is the
-> CPU/memory-heavy component** — size it accordingly (§2.5). The standalone
-> `batch-calculator.yml` service is an *optional, separate* deployment that this I-SPI build
-> does not invoke; see §3.5 before deciding whether to deploy it.
+> **I-SPI enqueues → API → Redis → worker (curveR) → `calib_*` → I-SPI reads.**
+>
+> The consequence is twofold: i-spi-compute (API + Redis + worker) is a **required** tier, and
+> the **worker** — not I-SPI — is the CPU/memory-heavy component. Size the worker accordingly
+> (§2.5). The old `batch-calculator.yml` is retired and replaced by i-spi-compute (§3.5).
 
 Everything runs in one Kubernetes namespace (`immunoplex`) as ordinary `Deployment` +
 `Service` pairs, with `PersistentVolumeClaim`s for the few things that must survive a restart.
 No operator, no Helm, no service mesh — plain YAML applied with `kubectl`.
 
-![Standalone I-SPI runtime architecture: a researcher's browser enters through the edge (Traefik), authenticates via the SSO layer (Dex, dex-account, optional whoami), reaches the I-SPI application, which reads and writes PostgreSQL. The optional Batch Calculator is set apart and not invoked by this build.](architecture.svg)
+![Standalone I-SPI runtime architecture: a researcher's browser enters through the edge (Traefik), authenticates via the SSO layer (Dex, dex-account, optional whoami), and reaches the I-SPI application, which reads and writes PostgreSQL. For curve fitting, I-SPI submits jobs to the required i-spi-compute API, which queues them in Redis for the curveR worker; the worker writes fit results to PostgreSQL, which I-SPI reads back.](architecture.svg)
 
 | Component | Image | Port(s) | Persists data? | Depends on | Role |
 |---|---|---|---|---|---|
@@ -53,10 +56,10 @@ No operator, no Helm, no service mesh — plain YAML applied with `kubectl`.
 | **dex-account** | `ghcr.io/immunoplex/signup:main` | 8080 | No | Dex (gRPC) | Self-service signup |
 | **whoami** *(optional)* | `traefik/whoami`, `oauth2-proxy:v7.8.1` | 80, 8080 | No | Dex | Auth-chain verification |
 | **PostgreSQL** | `postgres:17.2` | 5432 | Yes (20G PVC) | — | System of record (`immunoplex` db) |
-| **I-SPI** | `ghcr.io/immunoplex/i-spi:main` | 3838 | No (uses PG) | PostgreSQL, Dex | The analysis app **+ in-process fitting** |
-| *batch-calculator-api* (optional) | `ghcr.io/immunoplex/immunoplex-batch-cal-api:main` | 8000 | No | batch redis | External fitting API (not called here) |
-| *batch-calculator-redis* (optional) | `redis:7` | 6379 | No | — | Dedicated job queue |
-| *batch-calculator-worker* (optional) | `ghcr.io/immunoplex/immunoplex-batch-cal-worker:main` | — | No (writes PG) | batch redis, PostgreSQL | External fitting worker |
+| **I-SPI** | `ghcr.io/immunoplex/i-spi:main` | 3838 | No (uses PG) | PostgreSQL, Dex, i-spi-compute API | The analysis app (enqueues fits, reads results) |
+| **i-spi-compute-api** | `ghcr.io/immunoplex/i-spi-compute-api:main` | 8000 | No | i-spi-compute Redis | **Required.** Job API — accepts/lists/cancels fit jobs |
+| **i-spi-compute-redis** | `redis:7` | 6379 | No | — | **Required.** Dedicated job queue for the fitting tier |
+| **i-spi-compute-worker** | `ghcr.io/immunoplex/i-spi-compute-worker:main` | — | No (writes PG) | i-spi-compute Redis, PostgreSQL | **Required.** curveR worker — runs fits, writes `calib_*` |
 
 ---
 
@@ -75,8 +78,8 @@ one is turned off to avoid a conflict.
 Workloads pull images from public registries by default. For an offline install, follow
 `OFFLINE-IMAGES.md`'s save/transfer/load pattern, building the image list from the `image:` fields of
 the manifests you actually apply (for this configuration: Traefik, Dex, signup, PostgreSQL,
-I-SPI, `redis:7`, and the two `immunoplex-batch-cal-*` images, plus oauth2-proxy/whoami if you
-keep the test harness). One air-gap trap: the Dex pod's init container downloads its web theme
+I-SPI, and the i-spi-compute images — `redis:7`, `i-spi-compute-api`, and
+`i-spi-compute-worker` — plus oauth2-proxy/whoami if you keep the test harness). One air-gap trap: the Dex pod's init container downloads its web theme
 (`web.zip`) from GitHub on first start; pre-seed the `dex` PVC with the unpacked `web/`
 directory at `/var/dex/web` so that download is skipped.
 
@@ -98,23 +101,28 @@ will actually type in their browsers.** Mismatches here are the most common fail
 why `coredns.yml` maps `IMMUNOPLEX_HOSTNAME → IMMUNOPLEX_IP_ADDRESS` for in-cluster lookups; on
 an isolated K3s node you almost certainly need it.
 
-### 2.5 Sizing — I-SPI is the heavy component
+### 2.5 Sizing — the i-spi-compute worker is the heavy component
 
-Because the provided I-SPI build runs all fitting **in-process** (stanassay/Stan + JAGS,
-parallelized with `future` on a multicore plan), the expensive computation happens inside the
-I-SPI pod, not in a separate worker. That makes I-SPI the CPU- and memory-bound component, and
-it is why the original manifest's commented-out `resources` requested 6 CPU and limited to 10.
+Fitting no longer runs in the I-SPI pod; it runs in the **i-spi-compute worker** (the curveR
+packages: frequentist robust curves plus the Bayesian Stan/JAGS ensemble). So the expensive
+computation happens in the worker, and **the worker is the CPU- and memory-bound component** —
+not I-SPI.
 
-Practically: give **I-SPI** generous CPU and memory. The corrected manifest starts at requests
-2 CPU / 4Gi and limits 8 CPU / 12Gi — schedulable on a modest node, but raise both (and use a
-node larger than the documented 4-core / 16 GB floor) for real fitting workloads, since
-`future` will use as many cores as you give it and Stan/JAGS runs are memory-hungry (the app
-configures `future` for several GB of globals). The 4-core / 16 GB floor is adequate for light
-use and bring-up; production fitting wants more.
+Practically:
 
-If you later move fitting off the I-SPI pod by deploying the external Batch Calculator (§3.5)
-*and* running an I-SPI build that submits to it, the sizing balance shifts to the worker — but
-that is not how the provided code behaves.
+- **i-spi-compute-worker** — give it the cores and RAM. Set its CPU **limit** and the
+  `WORKER_CORES` env var to the **same** value (the worker's core detection is not cgroup-aware,
+  and `WORKER_CORES` also caps Stan's parallel chains). Stan/JAGS runs are memory-hungry, so keep
+  memory generous and scale up for large studies. Running more worker replicas adds throughput —
+  each pops the same Redis queue.
+- **I-SPI** is now comparatively light: an interactive Shiny front end that submits jobs and
+  reads results from the database. Modest CPU/memory is fine; size for concurrent users, not for
+  fitting.
+- **i-spi-compute-api** and **i-spi-compute-redis** are small (the API is a thin FastAPI job
+  broker; Redis just holds the queue).
+
+The documented 4-core / 16 GB floor is adequate for bring-up and light use with a single worker;
+production fitting wants a worker sized well above it (and, optionally, more worker replicas).
 
 ---
 
@@ -157,54 +165,85 @@ from `i-spi-db.sql`). The deployment is deliberately hardened by an init script:
 `pg_hba.conf` to **reject all non-TLS connections** and require `md5` over TLS, generates a
 self-signed server certificate, and revokes default `PUBLIC` privileges. Because non-TLS is
 rejected, every client must connect over SSL — which is why I-SPI connects with `sslmode=require`
-(set in `global.R`) and sets `PGSSLCERT=/tmp/postgresql.crt`. (If you also deploy the external
-Batch Calculator, its worker must likewise use `DB_SSLMODE=require` — the corrected value; the
-original `disable` would be refused.) I-SPI uses the `madi_results` schema in this database both
-for its own tables and for the curve fits and concentration results it computes.
+(set in `global.R`) and sets `PGSSLCERT=/tmp/postgresql.crt`. The **i-spi-compute worker**
+connects to the same database and must likewise use `DB_SSLMODE=require`, or the hardened
+PostgreSQL refuses it. Both I-SPI and the worker use the `madi_results` schema: I-SPI for its own
+tables and to **read** the `calib_*` fit results, the worker to **write** those results.
 
-### 3.4 The application: I-SPI — and where fitting happens
+### 3.4 The application: I-SPI — and how it fits curves
 
 I-SPI is the R Shiny app on port 3838 — the reason the rest exists. It connects to the
-`immunoplex` database over TLS and authenticates users through Dex. Crucially, it also **does
-the numerical heavy lifting itself**: `global.R` loads the `stanassay` package into the app and
-sets a `future` multicore plan, and the fitting code (`batch_fit_functions.R`,
-`bayes_concentration_functions.R`) runs frequentist robust curves, JAGS MCMC, and the Bayesian
-ensemble in background R processes *within the pod*, writing results to the `madi_results`
-schema. "Batch" in this app means batch-processing many curves locally, parallelized across the
-pod's cores — not handing work to an external service. I-SPI holds no durable state of its own;
+`immunoplex` database over TLS and authenticates users through Dex. It does **not** do the
+numerical heavy lifting itself. When a user requests a fit, I-SPI resolves the scope to a set of
+`curve_id`s and calls its compute client (`compute_api_client.R`), which POSTs a job to the
+i-spi-compute API with an `X-API-Key` header; it then polls the job and, when the worker has
+written the `calib_*` results, reads and displays them. I-SPI holds no durable state of its own;
 everything persists in PostgreSQL.
 
-The practical consequence is the sizing point from §2.5: I-SPI is the CPU/memory-hungry
-component, so give it room.
+The practical consequence is the sizing point from §2.5: the **worker** is the CPU/memory-hungry
+component, and I-SPI itself is light.
 
-### 3.5 The external Batch Calculator (optional, not invoked by this build)
+### 3.5 The i-spi-compute fitting tier (required)
 
-The repo also ships a standalone Batch Calculator — a FastAPI service
-(`batch-calculator-api`), a dedicated Redis (`batch-calculator-redis`, `redis:7`), and an R
-worker (`batch-calculator-worker`) that uses the same
-[`stanassay`](https://github.com/immunoplex/stanassay) package to produce curve fits and the
-**concentration**, **se_concentration**, and **pcov** outputs. It is a way to run those Stan
-workloads *out of process*, on a separately sizable worker, writing results to the same
-`immunoplex` / `madi_results` database. Its only external dependency is PostgreSQL; it brings
-its own Redis, so it pulls in no other excluded component.
+Fitting runs in **i-spi-compute**, deployed from `i-spi-compute.yml` into the same `immunoplex`
+namespace. It is three pieces:
 
-**However, the provided I-SPI source does not call it.** There is no HTTP client to
-`batch-calculator-api` anywhere in the code, and no environment variable for its endpoint or API
-key — the only env vars I-SPI reads are the database credentials and `LOCAL_DEV`. The fitting
-happens in-process as described in §3.4. The external service therefore represents an
-*alternative* topology (offloading fitting from the pod) that would require an I-SPI build wired
-to submit jobs to it — which this one is not.
+- **i-spi-compute-api** (`ghcr.io/immunoplex/i-spi-compute-api:main`, port 8000) — a FastAPI job
+  broker. I-SPI submits, polls, lists, and cancels jobs against it; every request except the
+  unauthenticated `/health` carries an `X-API-Key` header that must equal the API's `API_KEY`.
+- **i-spi-compute-redis** (`redis:7`, port 6379) — a dedicated queue for this tier, password-
+  protected with `REDIS_AUTH` (`--requirepass`).
+- **i-spi-compute-worker** (`ghcr.io/immunoplex/i-spi-compute-worker:main`) — the **curveR**
+  engine. It pops jobs off Redis, runs the frequentist robust curves and the Bayesian Stan/JAGS
+  ensemble, and writes the fits and the **concentration**, **se_concentration**, and **pcov**
+  outputs to the `calib_*` tables in the `immunoplex` / `madi_results` database. It connects to
+  PostgreSQL over TLS (`DB_SSLMODE=require`).
 
-What this means for you:
+**I-SPI drives this tier.** Its compute client (`compute_api_client.R`) reads two environment
+variables — `ISPI_COMPUTE_URL` (the API base URL, e.g. `https://HOST/i-spi-compute`, no trailing
+`/jobs`) and `ISPI_COMPUTE_API_KEY` (the shared key) — and POSTs fit jobs to `<URL>/jobs`. So
+unlike the retired Batch Calculator, this service is **not** optional and is **not** idle: it is
+the only path by which curves get fit. The full loop is:
 
-- **If you run this I-SPI build, you do not need `batch-calculator.yml`.** Fitting works
-  in-process; deploying the external service would leave it idle (nothing submits jobs to it).
-- **Deploy `batch-calculator.yml` only** if your I-SPI build is known to hand fitting jobs to
-  it (via the `madi_results` job tables the schema exposes, or a newer code path), or you are
-  staging for that. The corrected manifest (`DB_SSLMODE=require`) is ready if so.
+**I-SPI enqueues → API → Redis → worker (curveR) → `calib_*` → I-SPI reads.**
 
-There is consequently no I-SPI → Batch "submission" wiring to configure in `i-spi.yml`; the
-earlier drafts' commented endpoint/key have been removed.
+`i-spi.yml` therefore wires `ISPI_COMPUTE_URL` and `ISPI_COMPUTE_API_KEY` (the latter filled by
+the `sed` step to the same value as the API's `IMMUNOPLEX_API_KEY`, so client and server can
+never drift). The former `batch-calculator.yml` and its `immunoplex-batch-cal-*` images are
+retired; do not deploy them.
+
+### 3.6 Scaling two different ways: worker replicas vs. multiple i-spi-compute stacks
+
+§2.5 already covers running more **worker replicas** against this one deployment's Redis queue —
+that's throughput scaling within a single i-spi-compute stack, and it's what `i-spi-compute.yml`
+gives you by raising `replicas` on the worker Deployment.
+
+**A second, independent mechanism exists for a different purpose: isolation.** I-SPI can route
+different projects or studies to **entirely separate i-spi-compute deployments** — each its own
+API, its own dedicated Redis, and its own worker(s), not a shared queue. A project/study's
+`compute_cluster` setting (a free-text label in the settings cascade) selects which one: the
+label is normalized (lower-cased, `-`→`_`) and matched against `ISPI_COMPUTE_URL__<LABEL>` /
+`ISPI_COMPUTE_API_KEY__<LABEL>` environment variable pairs on the I-SPI pod; an unset or
+unrecognized label falls back to the "default" `ISPI_COMPUTE_URL`/`ISPI_COMPUTE_API_KEY` pair
+every deployment already has. Adding a clone means adding a new env var pair to `i-spi.yml` and
+restarting the I-SPI pod — env vars are read at process startup, scanned fresh on every lookup,
+so no app code change is needed, but this standalone manifest set doesn't template that wiring
+for you; add it by hand if you need a second stack.
+
+Use worker replicas for more throughput against one pool of jobs; use a second i-spi-compute
+stack when you need a genuinely separate compute pool — a different group, site, or workload
+that shouldn't share capacity or a queue with the default one. (Source: I-SPI's
+`compute_cluster_registry.R` and `compute_api_client.R` — not reproduced in this manifest set
+since this standalone install only configures the "default" cluster.)
+
+There is a third, independent layer of parallelism **within one worker pod**: `worker_curveR.R`
+fits multiple curve groups concurrently via forked child processes (`parallel::mclapply`), each
+opening its own database connection, sized by `plan_parallelism()` from the pod's CPU/memory
+budget (`WORKER_CORES`, `WORKER_MEM_MB`, clamped by `WORKER_MAX_PARALLEL`) — see
+`WORKER_PARALLELISM_NOTES.md` in the I-SPI repo for the full tuning detail. This is why §2.5
+says to set the worker's CPU **limit** and `WORKER_CORES` to the same value: the worker's own
+core-count detection isn't cgroup-aware, so an unset or mismatched `WORKER_CORES` can
+over-fork relative to what the pod is actually scheduled.
 
 ---
 
@@ -220,13 +259,15 @@ step. For this configuration, these placeholders matter:
 | `IMMUNOPLEX_POSTGRES_PASSWORD` | A strong password | PostgreSQL, I-SPI (+ batch worker if deployed) |
 | `IMMUNOPLEX_OAUTH_CLIENT_ID` | `openssl rand -hex 32` | Dex client + I-SPI |
 | `IMMUNOPLEX_OAUTH_SECRET` | `openssl rand -hex 32` | Dex client + I-SPI |
-| `IMMUNOPLEX_REDIS_AUTH` | A strong password | *Optional* `batch-calculator.yml` Redis only |
-| `IMMUNOPLEX_API_KEY` | `openssl rand -hex 32` | *Optional* `batch-calculator.yml` API only |
+| `IMMUNOPLEX_REDIS_AUTH` | A strong password | **Required.** i-spi-compute Redis (`--requirepass`), API, and worker — all three must match |
+| `IMMUNOPLEX_API_KEY` | `openssl rand -hex 32` | **Required.** i-spi-compute API **and** I-SPI (`ISPI_COMPUTE_API_KEY`) — must match |
 | `IMMUNOPLEX_OAUTH_COOKIE_SECRET` | `openssl rand -hex 16` | whoami only (if deployed) |
 
-For a core I-SPI install you need only the first five (hostname, IP, Postgres password, and the
-two OAuth values). `IMMUNOPLEX_REDIS_AUTH` and `IMMUNOPLEX_API_KEY` matter only if you deploy
-the optional Batch Calculator; `IMMUNOPLEX_OAUTH_COOKIE_SECRET` only if you deploy whoami.
+For a working install you need the first five (hostname, IP, Postgres password, and the two
+OAuth values) **plus** `IMMUNOPLEX_REDIS_AUTH` and `IMMUNOPLEX_API_KEY`, because i-spi-compute is
+required. `IMMUNOPLEX_OAUTH_COOKIE_SECRET` is only needed if you deploy whoami. Note
+`IMMUNOPLEX_API_KEY` is shared by the API and I-SPI, and `IMMUNOPLEX_REDIS_AUTH` by Redis, the
+API, and the worker — the single `sed` pass fills each everywhere it appears so the values match.
 
 One consequence worth internalizing: **shared values must match across files** — the OAuth
 client secret is identical in `dex.yml` and the `i-spi` Secret, filled by a single `sed` pass so
@@ -258,13 +299,13 @@ the authoritative list of variables the app reads.
 5. **I-SPI resources.** The `resources` block was commented out; now set to tunable starting
    values so the pod is schedulable with sensible bounds.
 6. **I-SPI logging.** `SHINY_LOG_LEVEL` is `INFO` for normal operation (was `DEBUG`).
-7. **Batch worker SSL (only if you deploy the optional `batch-calculator.yml`).** `DB_SSLMODE`
-   was `disable`, which the hardened PostgreSQL rejects; it is now `require`.
+7. **i-spi-compute worker SSL.** The worker connects to the hardened PostgreSQL, which rejects
+   non-TLS connections, so its `DB_SSLMODE` must be `require`.
 
-There is no I-SPI → Batch Calculator **submission** wiring to configure. Earlier drafts added a
-commented endpoint and an `immunoplex_api_key` variable by analogy with the Data Portal app, but
-the I-SPI source confirms it neither calls `batch-calculator-api` nor reads any endpoint/key —
-fitting is in-process (§3.4, §3.5). Those speculative lines have been removed from `i-spi.yml`.
+I-SPI **does** have compute-submission wiring: `i-spi.yml` sets `ISPI_COMPUTE_URL` and
+`ISPI_COMPUTE_API_KEY`, which the app's `compute_api_client.R` reads to submit fit jobs to the
+i-spi-compute API (§3.4, §3.5). The retired Batch Calculator's `BATCH_API_URL`/`BATCH_API_KEY`
+variables are gone.
 
 ---
 
@@ -272,15 +313,16 @@ fitting is in-process (§3.4, §3.5). Those speculative lines have been removed 
 
 Apply bottom-up so each consumer's dependency is already answering when it starts.
 
-![Deployment order, applied bottom-up: Namespace, then cert-manager and PKI, CoreDNS, Traefik, Dex and signup, whoami (verify then delete), PostgreSQL, then I-SPI for a working instance. The optional Batch Calculator is the last step.](deployment-order.svg)
+![Deployment order, applied bottom-up: Namespace, then cert-manager and PKI, CoreDNS, Traefik, Dex and signup, whoami (verify then delete), PostgreSQL, then the required i-spi-compute tier (Redis, API, worker), then I-SPI for a working instance.](deployment-order.svg)
 
 In words: namespace and (on K3s) cert-manager + the CA + CoreDNS first; then Traefik; then Dex
 and signup; verify with whoami; then PostgreSQL (create the `immunoplex` database and load
-`i-spi-db.sql`); then I-SPI — at which point you have a fully working analysis instance, since
-fitting runs inside the I-SPI pod. The external `batch-calculator.yml` is an optional last step
-and only meaningful if your I-SPI build offloads to it (§3.5). Each application step should pair
-`kubectl apply` with `kubectl wait --for=condition=ready` before moving on, because a dependent
-pod that starts too early will crash-loop until its dependency is up.
+`i-spi-db.sql`, which includes the `calib_*` calibration tables); then **i-spi-compute**
+(`i-spi-compute.yml` — Redis, API, worker) since I-SPI's fit path depends on the API being
+reachable; then I-SPI — at which point you have a fully working analysis instance. Each
+application step should pair `kubectl apply` with `kubectl wait --for=condition=ready` before
+moving on, because a dependent pod that starts too early will crash-loop until its dependency is
+up.
 
 ---
 
@@ -288,27 +330,30 @@ pod that starts too early will crash-loop until its dependency is up.
 
 The end-to-end check for the auth foundation is the **whoami login**: browse to
 `https://HOST/whoami`, sign up, log in, and confirm `X-Forwarded-Email` appears. Confirm
-PostgreSQL with `select version();`. Then load I-SPI at `https://HOST/i-spi/`, authenticate, and
-run a fit — when the results (concentration / se_concentration / pcov) appear, the in-process
-fitting path is working. (If you deployed the optional Batch Calculator, also confirm its API
-returns `{"status":"ok","redis":"connected"}` from `/health`, though this I-SPI build does not
-drive it.)
+PostgreSQL with `select version();`. Confirm the fitting tier is healthy — from inside the I-SPI
+pod, `curl https://HOST/i-spi-compute/health` should return
+`{"status":"ok","redis":"connected"}` (this also proves I-SPI can reach the API through the
+ingress). Then load I-SPI at `https://HOST/i-spi/`, authenticate, and run a fit: I-SPI submits
+the job to i-spi-compute, the worker fits the curves and writes `calib_*`, and the results
+(concentration / se_concentration / pcov) appear in I-SPI — exercising the whole
+enqueue → worker → `calib_*` → read chain.
 
 ---
 
 ## 8. Day-2 notes
 
 - **Backups.** Durable state is the `immunoplex` PostgreSQL database (both I-SPI's tables and the
-  `madi_results` schema) and Dex's SQLite user store on its PVC. Use `pg_dump` for the database;
-  don't forget the Dex PVC if you want to preserve user accounts. The job queue in
-  batch-calculator-redis is transient and does not need backup.
+  `madi_results` schema, including the `calib_*` fit results) and Dex's SQLite user store on its
+  PVC. Use `pg_dump` for the database; don't forget the Dex PVC if you want to preserve user
+  accounts. The i-spi-compute Redis queue is transient (in-flight jobs only) and does not need
+  backup.
 - **Upgrades.** I-SPI's image tracks `:main` with `imagePullPolicy: Always`, so a pod restart
   pulls the latest build. For reproducibility, pin to a specific tag or digest in a controlled
   environment.
-- **Scaling.** Fitting runs inside the I-SPI pod, so the way to fit faster is to give I-SPI more
-  CPU/memory (vertical scaling) on a larger node — `future` uses the cores available. Running
-  multiple I-SPI replicas is possible for concurrent users (it's stateless, with the sticky
-  considerations of a Shiny app), but does not speed up a single fit. PostgreSQL and Dex (SQLite)
-  are single-instance (`strategy: Recreate`) and not built for multi-replica here. Only if you
-  adopt the optional external Batch Calculator does horizontal worker scaling enter the picture.
+- **Scaling.** Fitting runs in the i-spi-compute worker, so the way to fit faster is to give the
+  **worker** more CPU/memory (raise its limit and `WORKER_CORES` together) and/or run more worker
+  replicas — each pops the same Redis queue, so replicas add throughput across concurrent jobs.
+  I-SPI itself scales for concurrent *users*: multiple replicas are possible (it's stateless,
+  with the sticky considerations of a Shiny app) and no longer bear the fitting load. PostgreSQL,
+  Dex (SQLite), and the i-spi-compute Redis/API are single-instance here.
 
