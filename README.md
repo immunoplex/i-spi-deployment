@@ -8,7 +8,7 @@ This repo provides instructions and manifests for deploying a **standalone I-SPI
 >
 > **I-SPI enqueues → API → Redis → worker (curveR) → `calib_*` → I-SPI reads.**
 >
-> The practical consequence is that i-spi-compute is a **required** tier (not an optional add-on), and the **worker** — not I-SPI — is the CPU/memory-heavy component. The former standalone **Batch Calculator** (`batch-calculator.yml`) is **retired** and replaced by i-spi-compute.
+> The practical consequence is that i-spi-compute is a **required** tier (not an optional add-on), and the **worker** — not I-SPI — is the CPU/memory-heavy component. The former Batch Calculator has been removed; i-spi-compute replaces it.
 
 ## Start here — which document do I need?
 
@@ -17,9 +17,10 @@ This repo has several documents, each for a different job. Find the row that mat
 | If you want to… | Read | Which gives you |
 |---|---|---|
 | Understand *what* gets deployed and *why* — the components (including i-spi-compute), how they fit, the enqueue→worker→`calib_*`→read chain, sizing, and the TLS/hostname choices | **[`ARCHITECTURE.md`](ARCHITECTURE.md)** | The concepts and design decisions behind every step (read this first) |
-| Deploy a real, lasting instance | **[`README-STANDALONE-ISPI.md`](README-STANDALONE-ISPI.md)** — the runbook (the [Deploying](#deploying) summary below shows the order) | The exact `sed`/`kubectl` steps, in order, with correction notes and troubleshooting |
+| Deploy a real, lasting instance | **[`README-STANDALONE-ISPI.md`](README-STANDALONE-ISPI.md)** — the runbook (the [Deploying](#deploying) summary below shows the order) | The exact `sed`/`kubectl` steps, in order, with troubleshooting |
 | Build a cluster first (you have no Kubernetes) | **[`K3S.md`](K3S.md)** | Single-node K3s + cert-manager + the private CA |
 | Install without internet access (air-gapped) | **[`OFFLINE-IMAGES.md`](OFFLINE-IMAGES.md)** | Which images to stage (including the i-spi-compute API/worker and Redis), and how to side-load them |
+| Run everything on one machine with Docker, no Kubernetes (trying it out, testing a release, development) | **[`local/README.md`](local/README.md)** | `docker compose up` with I-SPI, i-spi-compute, Dex and PostgreSQL on localhost |
 | Just try it on a throwaway instance before committing | **[`TEST-DEPLOYMENT-CIVO.md`](TEST-DEPLOYMENT-CIVO.md)** (cloud VM) or **[`TEST-DEPLOYMENT-LOCAL.md`](TEST-DEPLOYMENT-LOCAL.md)** (your machine / offline) | A complete, self-contained run from bare VM to a working login |
 
 The intended reading order is **concept → implementation → verification**:
@@ -28,7 +29,7 @@ The intended reading order is **concept → implementation → verification**:
 2. **Implementation —** `README-STANDALONE-ISPI.md` is the runbook; the [Deploying](#deploying) summary below shows the order and hands off to it. No cluster? Do `K3S.md` first. Offline? Add `OFFLINE-IMAGES.md`.
 3. **Verification —** or, if you'd rather rehearse on a disposable instance first, run one of the `TEST-DEPLOYMENT-*.md` runbooks end to end.
 
-> **This README vs. `README-STANDALONE-ISPI.md`** — this file is a landing / routing page: it sends you to the right document and summarizes the deploy order. `README-STANDALONE-ISPI.md` is the authoritative runbook, with the exact commands, the manifest-correction notes, the "what's in this folder vs. the repo" table, and troubleshooting.
+> **This README vs. `README-STANDALONE-ISPI.md`** — this file is a landing / routing page: it sends you to the right document and summarizes the deploy order. `README-STANDALONE-ISPI.md` is the authoritative runbook, with the exact commands, the table of manifests, and troubleshooting.
 
 If you don't have a Kubernetes cluster, you can use [k3s](https://rancher.com/docs/k3s/latest/en/); see `K3S.md`.
 
@@ -38,7 +39,7 @@ The documented floor is **4 CPU cores and 16 GB of RAM**, which is adequate for 
 
 ## Deploying
 
-Deployment is three moves — **clone, configure, then apply the manifests in dependency order.** This is only the summary: the **full commands, per-step readiness checks, the manifest-correction notes, and troubleshooting live in [`README-STANDALONE-ISPI.md`](README-STANDALONE-ISPI.md)**, which is the authoritative runbook.
+Deployment is three moves — **clone, configure, then apply the manifests in dependency order.** This is only the summary: the **full commands, per-step readiness checks, and troubleshooting live in [`README-STANDALONE-ISPI.md`](README-STANDALONE-ISPI.md)**, which is the authoritative runbook.
 
 1. **Clone** this repository onto the host where you'll install:
    ```shell
@@ -57,6 +58,6 @@ Deployment is three moves — **clone, configure, then apply the manifests in de
 **Prerequisites**
 
 - No Kubernetes cluster yet? Build single-node K3s + cert-manager + the private CA with **[`K3S.md`](K3S.md)** first.
-- Installing without internet access? Stage and side-load the images per **[`OFFLINE-IMAGES.md`](OFFLINE-IMAGES.md)** — including the i-spi-compute API and worker images and `redis:7`.
+- Installing without internet access? Stage and side-load the images per **[`OFFLINE-IMAGES.md`](OFFLINE-IMAGES.md)** — including the i-spi-compute API and worker images and `redis:7.4`.
 
 For *why* this order and what each piece does, see **[`ARCHITECTURE.md`](ARCHITECTURE.md)** (§6 covers the deployment order).

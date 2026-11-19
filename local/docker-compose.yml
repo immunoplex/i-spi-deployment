@@ -1,0 +1,135 @@
+# =============================================================================
+# Local I-SPI stack: everything on one machine with Docker Compose.
+#
+#   browser --> I-SPI  http://localhost:3838/
+#           --> Dex    http://localhost:5556/dex   (sign-in)
+#   I-SPI --> i-spi-compute-api --> Redis --> i-spi-compute-worker
+#   I-SPI and the worker --> PostgreSQL (database `immunoplex`, schema from ../db)
+#
+# Usage (from this folder; see README.md):
+#   cp .env.example .env          # then put real values in .env
+#   docker compose up -d
+#   open http://localhost:3838/   # sign in as ispi-user@example.org / ispi-local
+#
+# The schema in ../db is loaded the first time PostgreSQL starts with an empty
+# volume. `docker compose down -v` deletes the data and starts over.
+# Same images as the Kubernetes manifests: I-SPI 1.1.0, i-spi-compute 1.1.0.
+# =============================================================================
+
+name: i-spi-local
+
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: immunoplex
+    # I-SPI and the worker always connect with TLS; the image's self-signed
+    # certificate is enough for a local stack.
+    command:
+      - postgres
+      - -c
+      - ssl=on
+      - -c
+      - ssl_cert_file=/etc/ssl/certs/ssl-cert-snakeoil.pem
+      - -c
+      - ssl_key_file=/etc/ssl/private/ssl-cert-snakeoil.key
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ../db:/docker-entrypoint-initdb.d:ro    # runs ../db/[0-9][0-9]_*.sql in order, once
+    ports:
+      - "127.0.0.1:5433:5432"                    # for psql from the host; optional
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d immunoplex"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  dex:
+    image: dexidp/dex:v2.44.0
+    command: ["dex", "serve", "/etc/dex/config.yaml"]
+    environment:
+      DEX_CLIENT_SECRET: ${DEX_CLIENT_SECRET:?set DEX_CLIENT_SECRET in .env}
+    volumes:
+      - ./dex.yaml:/etc/dex/config.yaml:ro
+    ports:
+      - "127.0.0.1:5556:5556"
+
+  i-spi-compute-redis:
+    image: redis:7.4
+    command: ["redis-server", "--requirepass", "${REDIS_AUTH:?set REDIS_AUTH in .env}"]
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$$REDIS_AUTH\" --no-auth-warning ping | grep -q PONG"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    environment:
+      REDIS_AUTH: ${REDIS_AUTH}
+
+  i-spi-compute-api:
+    image: ghcr.io/immunoplex/i-spi-compute-api:1.1.0
+    environment:
+      REDIS_HOST: i-spi-compute-redis
+      REDIS_PORT: "6379"
+      REDIS_DB: "0"
+      REDIS_AUTH: ${REDIS_AUTH}
+      API_KEY: ${API_KEY:?set API_KEY in .env}
+    ports:
+      - "127.0.0.1:8000:8000"                    # API docs at http://localhost:8000/docs; optional
+    depends_on:
+      i-spi-compute-redis:
+        condition: service_healthy
+
+  i-spi-compute-worker:
+    image: ghcr.io/immunoplex/i-spi-compute-worker:1.1.0
+    environment:
+      REDIS_HOST: i-spi-compute-redis
+      REDIS_PORT: "6379"
+      REDIS_DB: "0"
+      REDIS_AUTH: ${REDIS_AUTH}
+      DB_NAME: immunoplex
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_USER: postgres
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      DB_SSLMODE: require
+      PROGRESS_DIR: /tmp
+      WORKER_CORES: ${WORKER_CORES:-4}
+    cpus: ${WORKER_CPUS:-4}
+    mem_limit: ${WORKER_MEMORY:-8g}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      i-spi-compute-redis:
+        condition: service_healthy
+
+  i-spi:
+    image: ghcr.io/immunoplex/i-spi:1.1.0
+    environment:
+      db: immunoplex
+      db_host: postgres
+      db_port: "5432"
+      db_userid_x: postgres
+      db_pwd_x: ${POSTGRES_PASSWORD}
+      DEX_ISSUER: http://localhost:5556/dex
+      DEX_INTERNAL_URL: http://dex:5556/dex
+      DEX_CLIENT_ID: i-spi-local
+      DEX_CLIENT_SECRET: ${DEX_CLIENT_SECRET}
+      APP_REDIRECT_URI: http://localhost:3838/
+      ISPI_COMPUTE_URL: http://i-spi-compute-api:8000
+      ISPI_COMPUTE_API_KEY: ${API_KEY}
+      SHINY_LOG_LEVEL: INFO
+      SHINY_LOG_STDERR: "1"
+    ports:
+      - "127.0.0.1:3838:3838"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      dex:
+        condition: service_started
+      i-spi-compute-api:
+        condition: service_started
+
+volumes:
+  pgdata:
