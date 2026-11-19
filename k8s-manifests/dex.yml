@@ -220,7 +220,7 @@ spec:
         app: dex-account
     spec:
       containers:
-      - image: ghcr.io/immunoplex/signup:main
+      - image: ghcr.io/immunoplex/signup:main@sha256:cd7c59b4e5fb2b5090b6995b96265afcfba6b564a86894c1a2ebbae3a2067a79   # pinned by digest: signup publishes no release tags
         imagePullPolicy: Always
         name: dex-account
         env:

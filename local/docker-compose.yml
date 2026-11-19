@@ -13,7 +13,7 @@
 #
 # The schema in ../db is loaded the first time PostgreSQL starts with an empty
 # volume. `docker compose down -v` deletes the data and starts over.
-# Same images as the Kubernetes manifests: I-SPI 1.1.0, i-spi-compute 1.1.0.
+# Same images as the Kubernetes manifests: I-SPI 1.1.1, i-spi-compute 1.1.0.
 # =============================================================================
 
 name: i-spi-local
@@ -105,7 +105,7 @@ services:
         condition: service_healthy
 
   i-spi:
-    image: ghcr.io/immunoplex/i-spi:1.1.0
+    image: ghcr.io/immunoplex/i-spi:1.1.1
     environment:
       db: immunoplex
       db_host: postgres

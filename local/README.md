@@ -6,7 +6,7 @@ manifests:
 
 | Service | Image | Reached at |
 |---|---|---|
-| `i-spi` | `ghcr.io/immunoplex/i-spi:1.1.0` | http://localhost:3838/ |
+| `i-spi` | `ghcr.io/immunoplex/i-spi:1.1.1` | http://localhost:3838/ |
 | `dex` | `dexidp/dex:v2.44.0` | http://localhost:5556/dex (sign-in) |
 | `i-spi-compute-api` | `ghcr.io/immunoplex/i-spi-compute-api:1.1.0` | http://localhost:8000/docs (optional) |
 | `i-spi-compute-worker` | `ghcr.io/immunoplex/i-spi-compute-worker:1.1.0` | no port |

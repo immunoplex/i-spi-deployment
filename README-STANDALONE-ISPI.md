@@ -24,11 +24,11 @@ The former external Batch Calculator has been removed; i-spi-compute replaces it
 | `dex.yml` | sign-in (Dex) and self-service signup | yes |
 | `postgresql.yml` | the `immunoplex` database (TLS only); schema from `../db/` | yes |
 | `i-spi-compute.yml` | the fitting tier: API, Redis queue, curveR worker; the `i-spi-compute` Secret | **yes** |
-| `i-spi.yml` | I-SPI 1.1.0 | yes |
+| `i-spi.yml` | I-SPI 1.1.1 | yes |
 | `whoami.yml` | a test page that shows the signed-in user | optional |
 | `i-spi-compute-sim.yml` | a second, independent fitting tier | optional |
 
-Images are pinned: I-SPI `1.1.0`, i-spi-compute `1.1.0` (curveRcore 0.7.0,
+Images are pinned: I-SPI `1.1.1`, i-spi-compute `1.1.0` (curveRcore 0.7.0,
 curveRfreq 0.5.2, curveRbayes 0.5.2, curveRweights 0.3.0, CmdStan 2.40.0). To
 upgrade, change the tags and re-apply; to roll back, apply the previous tags.
 
@@ -45,7 +45,7 @@ upgrade, change the tags and re-apply; to roll back, apply the previous tags.
   `i-spi.yml` uncommented, the `compute_cluster` setting sends chosen projects
   or studies to the second tier.
 
-`i-spi.yml` sets only the variables I-SPI 1.1.0 reads; its header lists them.
+`i-spi.yml` sets only the variables I-SPI 1.1.1 reads; its header lists them.
 
 ## Configure (the `sed` step)
 
@@ -82,8 +82,12 @@ You need all of these: hostname, IP, Postgres password, the two OAuth values, **
 (`IMMUNOPLEX_REDIS_AUTH`).
 
 If you also deploy the optional `whoami.yml` test harness, generate its cookie secret too:
-`IMMUNOPLEX_OAUTH_COOKIE_SECRET=$(openssl rand -hex 16)` and `sed` it into `whoami.yml`. You do
-**not** need the MinIO placeholder for this install.
+
+```shell
+sed -i "s/IMMUNOPLEX_OAUTH_COOKIE_SECRET/$(openssl rand -hex 16)/g" whoami.yml
+```
+
+You do **not** need the MinIO placeholder for this install.
 
 > Keep the substituted copies out of version control — they now contain real secrets.
 

@@ -22,9 +22,9 @@ you bump a version in a `.yml`, bump it here too.
 | `traefik:v3.5.4` | `traefik.yml` |
 | `dexidp/dex:v2.44.0-alpine` | `dex.yml` |
 | `busybox` | `dex.yml` (init container that seeds the Dex web theme) |
-| `ghcr.io/immunoplex/signup:main` | `dex.yml` (dex-account signup UI) |
+| `ghcr.io/immunoplex/signup:main@sha256:cd7c59b4e5fb2b5090b6995b96265afcfba6b564a86894c1a2ebbae3a2067a79` | `dex.yml` (dex-account signup UI; pinned by digest, the image has no release tags) |
 | `postgres:17.2` | `postgresql.yml` |
-| `ghcr.io/immunoplex/i-spi:1.1.0` | `i-spi.yml` |
+| `ghcr.io/immunoplex/i-spi:1.1.1` | `i-spi.yml` |
 | `ghcr.io/immunoplex/i-spi-compute-api:1.1.0` | `i-spi-compute.yml` |
 | `ghcr.io/immunoplex/i-spi-compute-worker:1.1.0` | `i-spi-compute.yml` |
 | `redis:7.4` | `i-spi-compute.yml` (dedicated job queue) |
@@ -33,9 +33,9 @@ you bump a version in a `.yml`, bump it here too.
 docker pull traefik:v3.5.4
 docker pull dexidp/dex:v2.44.0-alpine
 docker pull busybox
-docker pull ghcr.io/immunoplex/signup:main
+docker pull ghcr.io/immunoplex/signup:main@sha256:cd7c59b4e5fb2b5090b6995b96265afcfba6b564a86894c1a2ebbae3a2067a79
 docker pull postgres:17.2
-docker pull ghcr.io/immunoplex/i-spi:1.1.0
+docker pull ghcr.io/immunoplex/i-spi:1.1.1
 docker pull ghcr.io/immunoplex/i-spi-compute-api:1.1.0
 docker pull ghcr.io/immunoplex/i-spi-compute-worker:1.1.0
 docker pull redis:7.4
@@ -82,9 +82,9 @@ Once pulled, save each image to a tarball (repeat for every image you pulled abo
 docker save -o traefik.tar          traefik:v3.5.4
 docker save -o dex.tar              dexidp/dex:v2.44.0-alpine
 docker save -o busybox.tar          busybox
-docker save -o signup.tar           ghcr.io/immunoplex/signup:main
+docker save -o signup.tar           ghcr.io/immunoplex/signup:main@sha256:cd7c59b4e5fb2b5090b6995b96265afcfba6b564a86894c1a2ebbae3a2067a79
 docker save -o postgres.tar         postgres:17.2
-docker save -o i-spi.tar            ghcr.io/immunoplex/i-spi:1.1.0
+docker save -o i-spi.tar            ghcr.io/immunoplex/i-spi:1.1.1
 docker save -o i-spi-compute-api.tar    ghcr.io/immunoplex/i-spi-compute-api:1.1.0
 docker save -o i-spi-compute-worker.tar ghcr.io/immunoplex/i-spi-compute-worker:1.1.0
 docker save -o redis.tar            redis:7.4
