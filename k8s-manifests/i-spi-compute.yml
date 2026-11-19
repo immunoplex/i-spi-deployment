@@ -1,36 +1,33 @@
 # =============================================================================
-# i-spi-compute — STANDALONE deployment (API + dedicated Redis + curveR worker)
+# i-spi-compute.yml -- i-spi-compute 1.1.0, the REQUIRED fitting tier
 #
-# REQUIRED tier, not optional: I-SPI (i-spi.yml) does not fit curves itself —
-# it submits jobs to this API, which queues them in this stack's OWN Redis for
-# the worker, which runs the frequentist/Bayesian curveR fits and writes
-# results to the shared PostgreSQL database for I-SPI to read back. See
-# ARCHITECTURE.md for the full chain. Replaces the retired
-# batch-calculator.yml (this build no longer fits in-process).
+#   I-SPI --POST /jobs--> API --> Redis queue --> worker (curveR) --> calib_*
+#                                                                  <-- I-SPI reads
 #
-# Adapted for this standalone, single-namespace, sed-templated install from
-# the production i-spi-compute manifest (own namespace, SealedSecret, and a
-# site-specific external database). Differences from the production version:
-#   - No `namespace:` (this install is single-namespace, applied with
-#     `kubectl -n immunoplex`, same as every other manifest here).
-#   - A plain `Secret` with IMMUNOPLEX_* sed placeholders instead of a
-#     SealedSecret (which is bound to one specific cluster's sealed-secrets
-#     controller key and can't be copied to a fresh test cluster).
-#   - The worker's DB_* vars point at THIS install's own `postgresql`
-#     Deployment/Secret (see postgresql.yml), not a separate production
-#     database host/credential.
-#   - No `imagePullSecrets` (the images are public on ghcr.io, same as
-#     i-spi.yml) and modest resource requests/limits sized for a test node
-#     rather than a production worker (scale up for real fitting workloads --
-#     see ARCHITECTURE.md §2.5; keep WORKER_CORES equal to the CPU limit).
+# - API (FastAPI): accepts and reports jobs; does not touch the database.
+# - Redis: this tier's own job queue.
+# - Worker: fits standard curves with curveRfreq (frequentist) and curveRbayes
+#   (Bayesian, CmdStan), estimates samples, controls and standards, computes
+#   precision weights (curveRweights), and writes everything to the calib_*
+#   tables. Image contents: curveRcore 0.7.0, curveRfreq 0.5.2,
+#   curveRbayes 0.5.2, curveRweights 0.3.0, CmdStan 2.40.0.
+# The database must hold calib schema 0.7.0 (load db/ into a new database).
 #
-# Placeholders (IMMUNOPLEX_*): substitute IMMUNOPLEX_API_KEY and
-# IMMUNOPLEX_REDIS_AUTH the SAME way as every other secret in this folder
-# (`openssl rand -hex 32`/`-hex 16`) -- these are now REQUIRED for every
-# install, not conditional on an optional component.
+# Placeholders, replaced by the `sed` step (README-STANDALONE-ISPI.md):
+#   IMMUNOPLEX_API_KEY, IMMUNOPLEX_REDIS_AUTH (both `openssl rand -hex 32`),
+#   IMMUNOPLEX_HOSTNAME (only for the optional Ingress at the end).
+# The API key is shared with I-SPI, which reads it from this file's Secret.
+#
+# Sizing: the worker does the heavy work. WORKER_CORES MUST equal the worker's
+# CPU limit (it caps parallel fits and Stan chains); its memory budget is read
+# from the container limit. The values below suit a small test node; a
+# production worker typically runs with 16 CPUs / 16Gi. More replicas = more
+# workers taking jobs from the same queue.
+#
+# A second, independent compute tier is in i-spi-compute-sim.yml (optional).
 # =============================================================================
 
-# ─── Shared secret (API_KEY read by both i-spi.yml and this API/worker) ──────
+# ─── Secret: API key (shared with I-SPI) and Redis password ──────────────────
 ---
 apiVersion: v1
 kind: Secret
@@ -40,7 +37,7 @@ stringData:
   API_KEY: IMMUNOPLEX_API_KEY
   REDIS_AUTH: IMMUNOPLEX_REDIS_AUTH
 
-# ─── Redis (dedicated queue for this stack -- not the main app's Postgres) ───
+# ─── Redis: this tier's job queue ────────────────────────────────────────────
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -57,7 +54,7 @@ spec:
     spec:
       containers:
         - name: i-spi-compute-redis
-          image: redis:7
+          image: redis:7.4
           imagePullPolicy: IfNotPresent
           args: ["--requirepass", "$(REDIS_AUTH)"]
           env:
@@ -79,7 +76,7 @@ spec:
   ports:
     - { port: 6379, targetPort: 6379, protocol: TCP, name: redis }
 
-# ─── API (FastAPI job broker) ─────────────────────────────────────────────────
+# ─── API ─────────────────────────────────────────────────────────────────────
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -96,8 +93,8 @@ spec:
     spec:
       containers:
         - name: i-spi-compute-api
-          image: ghcr.io/immunoplex/i-spi-compute-api:main
-          imagePullPolicy: Always
+          image: ghcr.io/immunoplex/i-spi-compute-api:1.1.0
+          imagePullPolicy: IfNotPresent
           env:
             - { name: REDIS_HOST, value: i-spi-compute-redis }
             - { name: REDIS_PORT, value: "6379" }
@@ -106,7 +103,9 @@ spec:
               valueFrom: { secretKeyRef: { name: i-spi-compute, key: REDIS_AUTH } }
             - name: API_KEY
               valueFrom: { secretKeyRef: { name: i-spi-compute, key: API_KEY } }
-            # Must match the Traefik ingress prefix below (/i-spi-compute).
+            # Public path prefix, used in the API's own docs links. The routes
+            # are /jobs and /health whether the request comes through the
+            # Ingress (prefix stripped) or straight to the Service.
             - { name: ROOT_PATH, value: /i-spi-compute }
           ports:
             - { containerPort: 8000, name: http, protocol: TCP }
@@ -127,7 +126,7 @@ spec:
   ports:
     - { port: 8000, targetPort: 8000, protocol: TCP, name: http }
 
-# ─── Worker (Python supervisor + R curveR engine) ─────────────────────────────
+# ─── Worker ──────────────────────────────────────────────────────────────────
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -135,7 +134,7 @@ metadata:
   name: i-spi-compute-worker
   labels: { app: i-spi-compute-worker }
 spec:
-  replicas: 1                       # scale = more workers popping the same queue
+  replicas: 1
   selector:
     matchLabels: { app: i-spi-compute-worker }
   template:
@@ -143,19 +142,17 @@ spec:
       labels: { app: i-spi-compute-worker }
     spec:
       nodeSelector:
-        kubernetes.io/arch: amd64   # Stan models are precompiled for amd64
+        kubernetes.io/arch: amd64   # Stan models are compiled for amd64
       containers:
         - name: i-spi-compute-worker
-          image: ghcr.io/immunoplex/i-spi-compute-worker:main
-          imagePullPolicy: Always
+          image: ghcr.io/immunoplex/i-spi-compute-worker:1.1.0
+          imagePullPolicy: IfNotPresent
           env:
             - { name: REDIS_HOST, value: i-spi-compute-redis }
             - { name: REDIS_PORT, value: "6379" }
             - { name: REDIS_DB,   value: "0" }
             - name: REDIS_AUTH
               valueFrom: { secretKeyRef: { name: i-spi-compute, key: REDIS_AUTH } }
-            # This install's own PostgreSQL (postgresql.yml) -- same database
-            # and credential I-SPI itself uses, NOT a separate/external DB.
             - { name: DB_NAME,    value: immunoplex }
             - { name: DB_HOST,    value: postgresql }
             - { name: DB_PORT,    value: "5432" }
@@ -164,15 +161,14 @@ spec:
               valueFrom: { secretKeyRef: { name: postgresql, key: POSTGRES_PASSWORD } }
             - { name: DB_SSLMODE, value: require }
             - { name: PROGRESS_DIR, value: /tmp }
-            # CPU cap: MUST equal the CPU limit below (detectCores() is not
-            # cgroup-aware). Also caps Stan's parallel_chains. Raise both
-            # together for a real fitting workload -- see ARCHITECTURE.md §2.5.
-            - { name: WORKER_CORES, value: "2" }
+            - { name: WORKER_CORES, value: "2" }     # MUST equal the CPU limit below
           resources:
             requests: { cpu: "1", memory: 2Gi }
-            limits:   { cpu: "2", memory: 4Gi }   # tune to study size; keep == WORKER_CORES
+            limits:   { cpu: "2", memory: 4Gi }
 
-# ─── Ingress: https://HOST/i-spi-compute ──────────────────────────────────────
+# ─── Ingress (OPTIONAL): https://IMMUNOPLEX_HOSTNAME/i-spi-compute ───────────
+# I-SPI reaches the API inside the cluster and does not need this. Keep it only
+# to submit or monitor jobs from outside (every call needs the X-API-Key header).
 ---
 apiVersion: networking.k8s.io/v1
 kind: Ingress

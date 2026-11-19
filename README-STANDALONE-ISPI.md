@@ -1,62 +1,51 @@
 # Standalone I-SPI — Install Guide
 
-This is the minimal, corrected path to stand up **I-SPI** as a focused analysis instance —
+This is the minimal path to stand up **I-SPI** as a focused analysis instance —
 without Data Portal, the platform's ingest API/Worker, the platform's main Redis, or MinIO. It
-pairs with the corrected manifests in this folder and the architecture rationale in
+uses the manifests in `k8s-manifests/` and the architecture rationale in
 `ARCHITECTURE.md`.
 
 **Fitting runs in i-spi-compute, not in I-SPI.** I-SPI **enqueues** fitting jobs to the
 i-spi-compute API; the API queues them in Redis; the **curveR** worker runs the frequentist and
-Bayesian (Stan/JAGS) fits and writes the concentration / se_concentration / pcov results to the
+Bayesian (Stan) fits and writes the concentration / se_concentration / pcov results to the
 `calib_*` tables in the shared `immunoplex` database; and I-SPI **reads those results back**. So
 a complete instance is I-SPI **plus** the required i-spi-compute tier (`i-spi-compute.yml` —
 API + Redis + worker) plus its edge/auth/data layers. The worker — not I-SPI — is the component
 to size generously (see `ARCHITECTURE.md` §2.5).
 
-The former external **Batch Calculator** (`batch-calculator.yml`) is **retired** and replaced by
-i-spi-compute; do not deploy it.
+The former external Batch Calculator has been removed; i-spi-compute replaces it.
 
-## What's in this folder vs. what you reuse from the repo
+## The manifests
 
-| Manifest | Source | Why |
+| Manifest | What it runs | Needed |
 |---|---|---|
-| `i-spi.yml` | **Use this folder's copy** | All corrections; wires `ISPI_COMPUTE_*` to the fitting tier |
-| `i-spi-compute.yml` | **Use this folder's copy** | **Required** fitting tier: API + Redis + curveR worker |
-| `dex.yml` | **Use this folder's copy** | Redirect URIs trimmed to I-SPI (+ whoami test) |
-| `traefik.yml` | **Use this folder's copy** | Unused Data Portal middleware removed |
-| `coredns.yml` | Repo, unchanged | Internal hostname resolution (K3s) |
-| `postgresql.yml` | Repo, unchanged | Database |
-| `whoami.yml` | Repo, unchanged *(optional)* | Verifies the auth chain before I-SPI |
+| `coredns.yml` | internal name resolution for the hostname (K3s) | yes |
+| `traefik.yml` | ingress and TLS; defines the path middlewares | yes |
+| `dex.yml` | sign-in (Dex) and self-service signup | yes |
+| `postgresql.yml` | the `immunoplex` database (TLS only); schema from `../db/` | yes |
+| `i-spi-compute.yml` | the fitting tier: API, Redis queue, curveR worker; the `i-spi-compute` Secret | **yes** |
+| `i-spi.yml` | I-SPI 1.1.0 | yes |
+| `whoami.yml` | a test page that shows the signed-in user | optional |
+| `i-spi-compute-sim.yml` | a second, independent fitting tier | optional |
 
-Not used for this install: `data-portal.yml`, `worker.yml`, `api.yml`, `minio.yml`, `redis.yml`,
-and the retired `batch-calculator.yml`.
+Images are pinned: I-SPI `1.1.0`, i-spi-compute `1.1.0` (curveRcore 0.7.0,
+curveRfreq 0.5.2, curveRbayes 0.5.2, curveRweights 0.3.0, CmdStan 2.40.0). To
+upgrade, change the tags and re-apply; to roll back, apply the previous tags.
 
-## Corrections
+**How the pieces connect.**
+- I-SPI connects to PostgreSQL as `db_*` with TLS, and to Dex for sign-in:
+  `DEX_INTERNAL_URL` inside the cluster for discovery and tokens, and the public
+  `DEX_ISSUER` for the browser.
+- I-SPI posts fit jobs to `http://i-spi-compute-api:8000`, the in-cluster
+  Service, with the API key from the `i-spi-compute` Secret. No TLS or Ingress
+  is involved, so the compute Ingress in `i-spi-compute.yml` is optional.
+- The worker reads jobs from Redis, reads the points to fit from the database's
+  `*_for_fit` views, and writes the `calib_*` tables, which I-SPI reads back.
+- With `i-spi-compute-sim.yml` and the two `ISPI_COMPUTE_*__SIM` variables in
+  `i-spi.yml` uncommented, the `compute_cluster` setting sends chosen projects
+  or studies to the second tier.
 
-**`i-spi.yml`**
-1. `DEX_CLIENT_SECRET` reads from I-SPI's own `i-spi` Secret instead of the `data-portal`
-   Secret — the change that makes a standalone install possible.
-2. `REDIRECT_URL: ???` replaced with `DEX_LOGOUT_ENDPOINT`. The I-SPI app's own `.env.sample`
-   and `app.R` use `DEX_LOGOUT_ENDPOINT`, not `REDIRECT_URL`, so the original placeholder was for
-   a variable the app does not read.
-3. `resources` set to sane starting values. I-SPI no longer fits curves, so it is **not** the
-   heavy component — the worker in `i-spi-compute.yml` is. Size I-SPI for concurrent users; size
-   the worker for fitting (see `ARCHITECTURE.md` §2.5).
-4. `SHINY_LOG_LEVEL` set to `INFO` (was `DEBUG`).
-5. Env reconciled with the app's `.env.sample` and source: added the uppercase **"python
-   engine"** DB credential set (`DB`, `DB_HOST`, `DB_PORT`, `DB_USERID_X`, `DB_PWD_X`) and
-   `upload_template_path`, both documented by the app but missing from the original manifest.
-
-6. Compute wiring: `i-spi.yml` sets `ISPI_COMPUTE_URL` (`https://HOST/i-spi-compute`) and
-   `ISPI_COMPUTE_API_KEY` (filled by `sed` to the same `IMMUNOPLEX_API_KEY` the compute API
-   enforces). The app's `compute_api_client.R` reads these to submit fit jobs. The retired
-   `BATCH_API_URL`/`BATCH_API_KEY` variables are gone.
-
-**`i-spi-compute.yml`** *(required)*
-- The fitting tier: `i-spi-compute-api` (FastAPI job broker, `X-API-Key` auth),
-  `i-spi-compute-redis` (`redis:7`, `--requirepass` `IMMUNOPLEX_REDIS_AUTH`), and
-  `i-spi-compute-worker` (curveR engine). The worker connects to PostgreSQL with
-  `DB_SSLMODE=require` — the hardened PostgreSQL rejects non-SSL connections.
+`i-spi.yml` sets only the variables I-SPI 1.1.0 reads; its header lists them.
 
 ## Configure (the `sed` step)
 
@@ -121,7 +110,7 @@ sudo kubectl -n immunoplex wait --for=condition=ready pod -l app=whoami --timeou
 sudo kubectl -n immunoplex apply -f postgresql.yml
 sudo kubectl -n immunoplex wait --for=condition=ready pod -l app=postgresql --timeout=5m
 sudo kubectl -n immunoplex exec -it deploy/postgresql -- psql -U postgres -c "CREATE DATABASE immunoplex;"
-cat db/[0-9][0-9]_*.sql | sudo kubectl -n immunoplex exec -i deploy/postgresql -- psql -v ON_ERROR_STOP=1 -U postgres immunoplex   # schema: see db/README.md
+cat ../db/[0-9][0-9]_*.sql | sudo kubectl -n immunoplex exec -i deploy/postgresql -- psql -v ON_ERROR_STOP=1 -U postgres immunoplex   # schema: see db/README.md
 
 # 5. i-spi-compute — the REQUIRED fitting tier (Redis + API + worker).
 #    Bring it up BEFORE I-SPI so the enqueue path has somewhere to go.
@@ -156,11 +145,11 @@ enqueue → worker → `calib_*` → read chain works.
   `i-spi` Secret. Set `SHINY_LOG_LEVEL` back to `DEBUG` to watch the flow in the pod logs.
 - **Fitting is slow or a pod is OOM-killed during a fit** — this is a **worker** sizing issue,
   not I-SPI: raise the CPU/memory limits on `i-spi-compute-worker` (keep its CPU limit and
-  `WORKER_CORES` equal) and/or run more worker replicas. Stan/JAGS runs are memory-hungry.
-- **Fits never start / I-SPI reports it can't submit a job** — check I-SPI can reach the API:
-  `curl https://<host>/i-spi-compute/health` from the I-SPI pod should return
-  `{"status":"ok","redis":"connected"}`. If `/health` is fine but submitting 401/403s, the
-  `IMMUNOPLEX_API_KEY` in `i-spi.yml` and `i-spi-compute.yml` don't match (re-run the single
-  `sed` pass so both get the same value).
+  `WORKER_CORES` equal) and/or run more worker replicas. Stan runs are memory-hungry.
+- **Fits never start / I-SPI reports it can't submit a job** — check the API from the I-SPI
+  pod: `curl http://i-spi-compute-api:8000/health` should return
+  `{"status":"ok","redis":"connected"}`. I-SPI and the API read the same key from the
+  `i-spi-compute` Secret, so a 401/403 means that Secret changed after the I-SPI pod started:
+  restart I-SPI.
 - **Worker can't reach the database** — confirm the worker's `DB_SSLMODE` is `require` (not
   `disable`); the hardened PostgreSQL rejects non-SSL connections.

@@ -1,8 +1,8 @@
 # Test Deployment Plan — Standalone I-SPI on a Local Host
 
 A step-by-step runbook for standing up a **throwaway test instance** of I-SPI on a machine you
-control — a VM on your laptop/workstation, or a spare bare-metal Linux box — using the corrected
-manifests in this folder and the repo's install docs (`K3S.md`, `README.md`).
+control — a VM on your laptop/workstation, or a spare bare-metal Linux box — using the
+manifests in `k8s-manifests/` and the repo's install docs (`K3S.md`, `README.md`).
 
 It is the local-host counterpart to `TEST-DEPLOYMENT-CIVO.md`. The key difference is
 **connectivity**: a local box is often on a restricted or fully offline network, so this plan is
@@ -29,10 +29,9 @@ You will need:
   PostgreSQL all share the node — size for the worker, not for I-SPI. The repo floor is 4 vCPU /
   16 GB, but for a test that actually exercises fitting, target **≥ 8 vCPU, ≥ 16 GB RAM (32 GB
   preferred), ≥ 100 GB disk**. The disk matters: K3s's local-path provisioner backs the
-  PostgreSQL (20 GB) and Dex (1 GB) PVCs on the node's own disk, alongside container images and
-  the database dump. See `ARCHITECTURE.md` §2.5.
-- The deployment repo, its **`db/`** schema files, and the corrected standalone manifests from
-  this folder — present on the node (Phase 5).
+  PostgreSQL (20 GB) and Dex (1 GB) PVCs on the node's own disk, alongside container images. See `ARCHITECTURE.md` §2.5.
+- The deployment repo, its **`db/`** schema files and the manifests in `k8s-manifests/`, present
+  on the node (Phase 5).
 - A decision on **hostname** (Phase 2) — the single most important choice, because it is baked
   into every OAuth redirect URL.
 - A decision on **connectivity**:
@@ -100,7 +99,7 @@ export ISPI_IP="<NODE_IP>"       # the node's IP address
 
 1. **On a connected machine**, follow `OFFLINE-IMAGES.md` to `docker pull` and `docker save` the
    images this standalone install needs. The core set is Traefik, Dex, `busybox`, the signup UI,
-   PostgreSQL, I-SPI, and the i-spi-compute images (`redis:7`, `i-spi-compute-api`,
+   PostgreSQL, I-SPI, and the i-spi-compute images (`redis:7.4`, `i-spi-compute-api`,
    `i-spi-compute-worker` — required, not optional); add the whoami harness images only if you
    plan to deploy that test harness. That doc lists the exact tags, matched to these manifests.
 
@@ -173,7 +172,8 @@ Follow `K3S.md` for the full commands; the sequence is:
 
 ## Phase 6 — Get the manifests and configure them
 
-Put the repo and the corrected standalone manifests on the node, then run the **standalone
+Put the repo on the node (`git clone https://github.com/immunoplex/i-spi-deployment.git`),
+then run the **standalone
 subset** of the `sed` configuration (full detail in `README-STANDALONE-ISPI.md`):
 
 ```shell
@@ -246,9 +246,6 @@ sudo kubectl -n immunoplex wait --for=condition=ready pod -l app=i-spi-compute-w
 sudo kubectl -n immunoplex apply -f i-spi.yml
 sudo kubectl -n immunoplex wait --for=condition=ready pod -l app=i-spi --timeout=10m
 ```
-
-`batch-calculator.yml` is **retired** — it's kept in this folder only as a deprecation stub
-explaining it's been replaced by i-spi-compute. Do not deploy it.
 
 ---
 

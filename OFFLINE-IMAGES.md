@@ -24,10 +24,10 @@ you bump a version in a `.yml`, bump it here too.
 | `busybox` | `dex.yml` (init container that seeds the Dex web theme) |
 | `ghcr.io/immunoplex/signup:main` | `dex.yml` (dex-account signup UI) |
 | `postgres:17.2` | `postgresql.yml` |
-| `ghcr.io/immunoplex/i-spi:main` | `i-spi.yml` |
-| `ghcr.io/immunoplex/i-spi-compute-api:main` | `i-spi-compute.yml` |
-| `ghcr.io/immunoplex/i-spi-compute-worker:main` | `i-spi-compute.yml` |
-| `redis:7` | `i-spi-compute.yml` (dedicated job queue) |
+| `ghcr.io/immunoplex/i-spi:1.1.0` | `i-spi.yml` |
+| `ghcr.io/immunoplex/i-spi-compute-api:1.1.0` | `i-spi-compute.yml` |
+| `ghcr.io/immunoplex/i-spi-compute-worker:1.1.0` | `i-spi-compute.yml` |
+| `redis:7.4` | `i-spi-compute.yml` (dedicated job queue) |
 
 ```shell
 docker pull traefik:v3.5.4
@@ -35,10 +35,10 @@ docker pull dexidp/dex:v2.44.0-alpine
 docker pull busybox
 docker pull ghcr.io/immunoplex/signup:main
 docker pull postgres:17.2
-docker pull ghcr.io/immunoplex/i-spi:main
-docker pull ghcr.io/immunoplex/i-spi-compute-api:main
-docker pull ghcr.io/immunoplex/i-spi-compute-worker:main
-docker pull redis:7
+docker pull ghcr.io/immunoplex/i-spi:1.1.0
+docker pull ghcr.io/immunoplex/i-spi-compute-api:1.1.0
+docker pull ghcr.io/immunoplex/i-spi-compute-worker:1.1.0
+docker pull redis:7.4
 ```
 
 ### Optional — whoami auth-chain test harness (`whoami.yml`)
@@ -84,10 +84,10 @@ docker save -o dex.tar              dexidp/dex:v2.44.0-alpine
 docker save -o busybox.tar          busybox
 docker save -o signup.tar           ghcr.io/immunoplex/signup:main
 docker save -o postgres.tar         postgres:17.2
-docker save -o i-spi.tar            ghcr.io/immunoplex/i-spi:main
-docker save -o i-spi-compute-api.tar    ghcr.io/immunoplex/i-spi-compute-api:main
-docker save -o i-spi-compute-worker.tar ghcr.io/immunoplex/i-spi-compute-worker:main
-docker save -o redis.tar            redis:7
+docker save -o i-spi.tar            ghcr.io/immunoplex/i-spi:1.1.0
+docker save -o i-spi-compute-api.tar    ghcr.io/immunoplex/i-spi-compute-api:1.1.0
+docker save -o i-spi-compute-worker.tar ghcr.io/immunoplex/i-spi-compute-worker:1.1.0
+docker save -o redis.tar            redis:7.4
 # optional whoami harness:
 docker save -o whoami.tar           traefik/whoami
 docker save -o oauth2-proxy.tar     quay.io/oauth2-proxy/oauth2-proxy:v7.8.1
