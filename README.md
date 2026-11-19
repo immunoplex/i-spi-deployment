@@ -4,7 +4,7 @@ ImmunoPlex enables researchers to assess, analyze, and share data. ImmunoPlex im
 
 This repo provides instructions and manifests for deploying a **standalone I-SPI** analysis instance — I-SPI, its required **i-spi-compute** fitting tier (a job **API**, a **Redis** queue, and a **curveR** worker), and the edge (Traefik), authentication (Dex), and data (PostgreSQL) layers they need — on your choice of Kubernetes cluster. Data Portal, the platform's data-ingest API/Worker, the platform's main Redis, and MinIO belong to the larger data-sharing platform and are **not** part of this deployment.
 
-> **How fitting works now.** I-SPI does **not** fit curves in-process. It **enqueues** fitting jobs to the i-spi-compute API over HTTP; the API places them on a Redis queue; the curveR **worker** runs the frequentist and Bayesian (Stan/JAGS) fits and writes the results to the `calib_*` tables in PostgreSQL; and I-SPI **reads those results back** from the database. In short:
+> **How fitting works now.** I-SPI does **not** fit curves in-process. It **enqueues** fitting jobs to the i-spi-compute API over HTTP; the API places them on a Redis queue; the curveR **worker** runs the frequentist and Bayesian (Stan) fits and writes the results to the `calib_*` tables in PostgreSQL; and I-SPI **reads those results back** from the database. In short:
 >
 > **I-SPI enqueues → API → Redis → worker (curveR) → `calib_*` → I-SPI reads.**
 >
@@ -34,7 +34,7 @@ If you don't have a Kubernetes cluster, you can use [k3s](https://rancher.com/do
 
 ## Hardware Requirements
 
-The documented floor is **4 CPU cores and 16 GB of RAM**, which is adequate for bring-up and light use. Standard-curve fitting (frequentist robust curves plus the Bayesian Stan/JAGS ensemble) runs in the **i-spi-compute worker** — the curveR R packages — **not** inside I-SPI, so the **worker** is the CPU- and memory-heavy component. For real fitting workloads, size the worker well above the floor (give it several cores and generous RAM; set its CPU limit and `WORKER_CORES` together, since Stan runs are memory-hungry) and see `ARCHITECTURE.md` §2.5. I-SPI itself is comparatively light (an interactive front end that submits jobs and reads results from the database), and the API and Redis are small. These instructions have been tested on Rocky8, Rocky9, and Ubuntu 24.04.
+The documented floor is **4 CPU cores and 16 GB of RAM**, which is adequate for bring-up and light use. Standard-curve fitting (frequentist robust curves plus the Bayesian Stan ensemble) runs in the **i-spi-compute worker** — the curveR R packages — **not** inside I-SPI, so the **worker** is the CPU- and memory-heavy component. For real fitting workloads, size the worker well above the floor (give it several cores and generous RAM; set its CPU limit and `WORKER_CORES` together, since Stan runs are memory-hungry) and see `ARCHITECTURE.md` §2.5. I-SPI itself is comparatively light (an interactive front end that submits jobs and reads results from the database), and the API and Redis are small. These instructions have been tested on Rocky8, Rocky9, and Ubuntu 24.04.
 
 ## Deploying
 

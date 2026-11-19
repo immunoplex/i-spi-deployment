@@ -1,7 +1,7 @@
 # Test Deployment Plan — Standalone I-SPI on Civo (UK)
 
 A step-by-step runbook for standing up a **throwaway test instance** of I-SPI on a fresh cloud
-VM, using the corrected manifests in this folder and the repo's own install scripts
+VM, using the manifests in `k8s-manifests/` and the repo's own install scripts
 (`K3S.md`, `README.md`). It is written for **Civo**, but every step after provisioning is just
 "a plain Ubuntu VM," so it ports to any provider.
 
@@ -33,19 +33,19 @@ You will need:
 - An SSH key pair on your laptop (`ssh-keygen -t ed25519` if you don't have one).
 - `kubectl` on your laptop (optional — you can run everything over SSH on the node instead).
 - The deployment repo and its **`db/`** schema files (you already have these), plus the
-  corrected manifests from this `standalone-i-spi/` folder.
+  manifests in `k8s-manifests/`.
 - A decision on **hostname** (see Phase 2) — the single most important choice, because it is
   baked into every OAuth redirect URL.
 
 **Sizing.** I-SPI does **not** fit curves itself — it submits jobs to the required
 **i-spi-compute** tier (API + dedicated Redis + curveR worker; see `i-spi-compute.yml` and
-`ARCHITECTURE.md`), and the **worker** (frequentist robust curves plus the Bayesian Stan/JAGS
+`ARCHITECTURE.md`), and the **worker** (frequentist robust curves plus the Bayesian Stan
 ensemble) is the CPU/memory-heavy piece. This is a single-node test, so I-SPI, i-spi-compute, and
 PostgreSQL all land on the SAME node — size for the worker, not for I-SPI. Target **≥ 8 vCPU,
 ≥ 16 GB RAM (32 GB preferred), ≥ 100 GB disk**; the manifest's default worker sizing (`i-spi-compute.yml`,
 2 CPU / 4 GiB) fits comfortably on that, with room to raise it for a heavier fitting test. The disk
 matters: K3s's built-in local-path provisioner backs the PostgreSQL (20 GB) and Dex (1 GB) PVCs
-on the node's own disk, alongside container images and the database dump.
+on the node's own disk, alongside container images.
 
 Civo names sizes `g3.*` (e.g. `g3.xsmall` is 1 vCPU / 1 GB / 25 GB). The larger
 size names/specs change over time, so list the current options and pick the smallest that meets
@@ -152,17 +152,11 @@ Follow `K3S.md` for the full commands; the sequence is:
 
 ## Phase 5 — Get the manifests and configure them
 
-Put the repo and the corrected standalone manifests on the node:
+Put the repo on the node:
 
 ```shell
-git clone https://github.com/immunoplex/deployment.git
-cd deployment
-
-# Overlay the corrected standalone manifests (from this folder) into k8s-manifests/,
-# replacing the repo's i-spi.yml, dex.yml, traefik.yml and ADDING i-spi-compute.yml
-# (required -- see ARCHITECTURE.md) and the updated batch-calculator.yml
-# (retired/deprecation stub only; do not deploy it).
-# (scp them up, or git-add them to your fork.)
+git clone https://github.com/immunoplex/i-spi-deployment.git
+cd i-spi-deployment
 ```
 
 Run the **standalone subset** of the `sed` configuration (full detail in
@@ -227,9 +221,6 @@ sudo kubectl -n immunoplex wait --for=condition=ready pod -l app=i-spi-compute-w
 sudo kubectl -n immunoplex apply -f i-spi.yml
 sudo kubectl -n immunoplex wait --for=condition=ready pod -l app=i-spi --timeout=10m
 ```
-
-`batch-calculator.yml` is **retired** — it's kept in this folder only as a deprecation stub
-explaining it's been replaced by i-spi-compute. Do not deploy it.
 
 If the air gap matters later, see `OFFLINE-IMAGES.md` — but a test on Civo has internet egress, so
 images pull normally.

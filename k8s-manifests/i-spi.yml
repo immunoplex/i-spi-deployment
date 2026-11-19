@@ -1,50 +1,28 @@
 # =============================================================================
-# I-SPI — STANDALONE deployment (corrected; requires i-spi-compute)
+# i-spi.yml -- I-SPI 1.1.0, the analysis front end (R Shiny)
 #
-# Runs I-SPI together with its REQUIRED i-spi-compute fitting tier
-# (i-spi-compute.yml: API + dedicated Redis + curveR worker), but WITHOUT Data
-# Portal, the ingest API/Worker, the platform's main Redis, or MinIO.
+# Serves https://IMMUNOPLEX_HOSTNAME/i-spi/. Users sign in through Dex
+# (dex.yml). I-SPI reads and writes the `immunoplex` database (postgresql.yml,
+# schema from db/) and sends every curve fit to i-spi-compute (i-spi-compute.yml),
+# which is REQUIRED: I-SPI does not fit curves itself.
 #
-# Corrections applied relative to the original manifest:
-#   1. DEX_CLIENT_SECRET now reads from this file's own `i-spi` Secret
-#      (was reading from the `data-portal` Secret, which only exists if
-#      data-portal.yml is applied — the hidden dependency that broke a
-#      standalone install).
-#   2. REDIRECT_URL (the literal `???` under #FIX ME) replaced with
-#      DEX_LOGOUT_ENDPOINT — the variable the I-SPI app actually documents in
-#      its .env.sample. REDIRECT_URL is not part of the app's interface.
-#   3. resources requests/limits are uncommented and given sane, tunable
-#      starting values (was commented out under a # FIXME marker).
-#   4. SHINY_LOG_LEVEL set to INFO for normal operation (was DEBUG). Switch
-#      back to DEBUG temporarily if you need to troubleshoot the OAuth flow.
-#   5. Env reconciled with the I-SPI app's .env.sample and source
-#      (madi-lumi-reader): added the uppercase "python engine" DB_* set and
-#      upload_template_path (both documented by the app), and confirmed the
-#      Dex/OIDC variables against app.R / auth_config.R.
-#   6. ISPI_COMPUTE_URL / ISPI_COMPUTE_API_KEY added (previously documented as
-#      a TODO in this file's comments but never actually wired into the
-#      Deployment's env — see 2026-10-09 reconciliation). I-SPI does not fit
-#      curves itself: see "Where fitting happens" below.
+# Placeholders, replaced by the `sed` step (README-STANDALONE-ISPI.md):
+#   IMMUNOPLEX_HOSTNAME, IMMUNOPLEX_OAUTH_CLIENT_ID, IMMUNOPLEX_OAUTH_SECRET.
+# The database password comes from the `postgresql` Secret (postgresql.yml),
+# the compute API key from the `i-spi-compute` Secret (i-spi-compute.yml).
 #
-# Where fitting happens: I-SPI submits fit requests over HTTP to the
-# i-spi-compute API (compute_api_client.R), which queues them in i-spi-compute's
-# OWN dedicated Redis for the curveR worker; the worker runs the frequentist
-# robust curves and the Bayesian Stan/JAGS ensemble and writes results
-# (concentration / se_concentration / pcov) to the `calib_*` tables in the
-# shared `immunoplex` database, which I-SPI then reads back. I-SPI is therefore
-# NOT the CPU/memory-heavy component — the i-spi-compute WORKER is (see
-# i-spi-compute.yml and ARCHITECTURE.md §2.5 for its sizing). This replaces the
-# retired batch-calculator.yml, which is no longer deployed.
-#
-# Placeholders (IMMUNOPLEX_*) are intentionally preserved so this file still
-# works with the repo's `sed` configuration step. Substitute: IMMUNOPLEX_HOSTNAME,
-# IMMUNOPLEX_POSTGRES_PASSWORD, IMMUNOPLEX_OAUTH_CLIENT_ID, IMMUNOPLEX_OAUTH_SECRET.
-# IMMUNOPLEX_API_KEY and IMMUNOPLEX_REDIS_AUTH are substituted in
-# i-spi-compute.yml's own Secret (apply that file too — it's REQUIRED, not
-# optional) and this file's API_KEY below reads from that same Secret.
+# Environment: exactly the variables I-SPI 1.1.0 reads.
+#   db, db_host, db_port, db_userid_x, db_pwd_x   database (TLS is required)
+#   DEX_ISSUER, DEX_INTERNAL_URL, DEX_CLIENT_ID,
+#   DEX_CLIENT_SECRET, APP_REDIRECT_URI           sign-in (OIDC)
+#   ISPI_COMPUTE_URL, ISPI_COMPUTE_API_KEY        default compute tier
+#   ISPI_COMPUTE_URL__<NAME>, ..._API_KEY__<NAME> optional further compute tiers,
+#                                                 chosen per project/study by the
+#                                                 `compute_cluster` setting
+#   SHINY_LOG_LEVEL, SHINY_LOG_STDERR             Shiny Server logging
 # =============================================================================
 
-# ─── OAuth client secret (consumed by this Deployment) ───────────────────────
+# ─── OAuth client secret ─────────────────────────────────────────────────────
 ---
 apiVersion: v1
 kind: Secret
@@ -53,7 +31,7 @@ metadata:
 stringData:
   DEX_CLIENT_SECRET: IMMUNOPLEX_OAUTH_SECRET
 
-# ─── Ingress: https://HOST/i-spi ─────────────────────────────────────────────
+# ─── Ingress: https://IMMUNOPLEX_HOSTNAME/i-spi/ ─────────────────────────────
 ---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
@@ -119,14 +97,11 @@ spec:
         app: i-spi
     spec:
       containers:
-        - image: ghcr.io/immunoplex/i-spi:main
+        - image: ghcr.io/immunoplex/i-spi:1.1.0
+          imagePullPolicy: IfNotPresent
           name: i-spi
-          # CORRECTION 3: resources uncommented. I-SPI itself is now a fairly
-          # light interactive Shiny front end -- it submits fit jobs and reads
-          # results, it does not fit them (the i-spi-compute WORKER is the
-          # CPU/memory-heavy component; see i-spi-compute.yml). Values below
-          # are modest and sized for concurrent users, not fitting; raise them
-          # if you have many simultaneous sessions, not for heavier fitting.
+          # Sized for interactive sessions; the fitting load is on the
+          # i-spi-compute worker. Raise for many simultaneous users.
           resources:
             requests:
               cpu: "500m"
@@ -135,7 +110,7 @@ spec:
               cpu: "2"
               memory: "3Gi"
           env:
-            # ── Database: R engine (lowercase) ────────────────────────────────
+            # ── Database ──────────────────────────────────────────────────────
             - name: db
               value: "immunoplex"
             - name: db_host
@@ -149,74 +124,49 @@ spec:
                 secretKeyRef:
                   name: postgresql
                   key: POSTGRES_PASSWORD
-            # ── Database: Python engine (uppercase) ───────────────────────────
-            # CORRECTION 6: the I-SPI .env.sample documents a SECOND, uppercase
-            # set of DB credentials "for python engine" with the same values.
-            # The original manifest set only the lowercase set, which would leave
-            # any Python-side database access unconfigured.
-            - name: DB
-              value: "immunoplex"
-            - name: DB_HOST
-              value: "postgresql"
-            - name: DB_PORT
-              value: "5432"
-            - name: DB_USERID_X
-              value: postgres
-            - name: DB_PWD_X
-              valueFrom:
-                secretKeyRef:
-                  name: postgresql
-                  key: POSTGRES_PASSWORD
-            # CORRECTION 7: documented in .env.sample but omitted by the original
-            # manifest. Back this path with a PVC if uploaded templates must
-            # survive pod restarts.
-            - name: upload_template_path
-              value: "/tmp/uploaded_templates"
-            # CORRECTION 4: INFO for normal operation; set to DEBUG to
-            # troubleshoot the login / OAuth flow during initial bring-up.
-            - name: SHINY_LOG_LEVEL
-              value: INFO
-            - name: SHINY_LOG_STDERR
-              value: "1"
-            - name: PGSSLCERT
-              value: "/tmp/postgresql.crt"
-            # ── Dex / OIDC ────────────────────────────────────────────────────
+            # ── Sign-in (Dex / OIDC) ──────────────────────────────────────────
             - name: DEX_ISSUER
               value: "https://IMMUNOPLEX_HOSTNAME/dex"
+            # Discovery and token calls go to Dex inside the cluster, so they do
+            # not depend on the public certificate being trusted by the pod.
+            - name: DEX_INTERNAL_URL
+              value: "http://dex:5556/dex"
             - name: DEX_CLIENT_ID
               value: IMMUNOPLEX_OAUTH_CLIENT_ID
-            # CORRECTION 1: read the OAuth client secret from this file's own
-            # `i-spi` Secret (was `name: data-portal`).
             - name: DEX_CLIENT_SECRET
               valueFrom:
                 secretKeyRef:
                   name: i-spi
                   key: DEX_CLIENT_SECRET
+            # Must be listed in this client's redirectURIs in Dex (dex.yml).
             - name: APP_REDIRECT_URI
               value: "https://IMMUNOPLEX_HOSTNAME/i-spi/"
-            # CORRECTION 2 (revised): the original `REDIRECT_URL: ???` is not a
-            # variable the I-SPI app reads — its .env.sample documents
-            # DEX_LOGOUT_ENDPOINT instead (as does the sibling data-portal app).
-            # Replaced accordingly. If your I-SPI build genuinely reads
-            # REDIRECT_URL, add it back alongside this.
-            - name: DEX_LOGOUT_ENDPOINT
-              value: "https://IMMUNOPLEX_HOSTNAME/i-spi/"
-            # Used by the manifests (and data-portal); not in .env.sample, which
-            # also omits other real vars, so the sample is not exhaustive. Kept.
-            - name: DEX_INTERNAL_URL
-              value: "http://dex:5556/dex"
-            # ── i-spi-compute: the REQUIRED fitting tier (compute_api_client.R) ──
-            # I-SPI submits fit jobs here over HTTP (header X-API-Key); it does
-            # not fit curves itself. i-spi-compute.yml MUST be applied (see that
-            # file). ROOT_PATH there is /i-spi-compute, matching this URL's path
-            # and the Traefik ingress prefix.
+            # ── Compute (i-spi-compute.yml) ───────────────────────────────────
+            # In-cluster Service URL: no TLS or Ingress in the path. I-SPI posts
+            # to <URL>/jobs with header X-API-Key.
             - name: ISPI_COMPUTE_URL
-              value: "https://IMMUNOPLEX_HOSTNAME/i-spi-compute"
+              value: "http://i-spi-compute-api:8000"
             - name: ISPI_COMPUTE_API_KEY
               valueFrom:
                 secretKeyRef:
                   name: i-spi-compute
                   key: API_KEY
+            # Optional second compute tier (i-spi-compute-sim.yml). Uncomment
+            # both, then set the `compute_cluster` setting to "sim" for the
+            # projects or studies that should use it.
+            # - name: ISPI_COMPUTE_URL__SIM
+            #   value: "http://i-spi-compute-sim-api:8000"
+            # - name: ISPI_COMPUTE_API_KEY__SIM
+            #   valueFrom:
+            #     secretKeyRef:
+            #       name: i-spi-compute
+            #       key: API_KEY
+            # ── Logging ───────────────────────────────────────────────────────
+            # INFO for normal use; DEBUG to troubleshoot sign-in.
+            - name: SHINY_LOG_LEVEL
+              value: INFO
+            - name: SHINY_LOG_STDERR
+              value: "1"
           ports:
           - containerPort: 3838
             name: shiny
