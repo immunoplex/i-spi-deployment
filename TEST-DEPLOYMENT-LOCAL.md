@@ -31,7 +31,7 @@ You will need:
   preferred), ≥ 100 GB disk**. The disk matters: K3s's local-path provisioner backs the
   PostgreSQL (20 GB) and Dex (1 GB) PVCs on the node's own disk, alongside container images and
   the database dump. See `ARCHITECTURE.md` §2.5.
-- The deployment repo, the **`i-spi-db.sql`** dump, and the corrected standalone manifests from
+- The deployment repo, its **`db/`** schema files, and the corrected standalone manifests from
   this folder — present on the node (Phase 5).
 - A decision on **hostname** (Phase 2) — the single most important choice, because it is baked
   into every OAuth redirect URL.
@@ -232,11 +232,9 @@ sudo kubectl -n immunoplex wait --for=condition=ready pod -l app=whoami --timeou
 sudo kubectl -n immunoplex apply -f postgresql.yml
 sudo kubectl -n immunoplex wait --for=condition=ready pod -l app=postgresql --timeout=5m
 sudo kubectl -n immunoplex exec -it deploy/postgresql -- psql -U postgres -c "CREATE DATABASE immunoplex;"
-sudo kubectl -n immunoplex exec -i deploy/postgresql -- psql -U postgres immunoplex < ../db-dumps/i-spi-db.sql
-# Apply the compute-tier's own schema once (curve fits / concentration results --
-# NOT included in i-spi-db.sql; vendored here from i-spi-compute/db/calib_schema_v1.sql,
-# keep it in sync with that repo if the schema changes):
-sudo kubectl -n immunoplex exec -i deploy/postgresql -- psql -U postgres immunoplex < ../db-dumps/calib_schema_v1.sql
+# Load the complete schema (I-SPI core, calib_* results, default settings) from
+# db/ -- the files run in name order; see db/README.md:
+cat ../db/[0-9][0-9]_*.sql | sudo kubectl -n immunoplex exec -i deploy/postgresql -- psql -v ON_ERROR_STOP=1 -U postgres immunoplex
 
 # i-spi-compute (REQUIRED -- I-SPI submits fit jobs here; apply and wait before I-SPI)
 sudo kubectl -n immunoplex apply -f i-spi-compute.yml
