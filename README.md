@@ -50,7 +50,7 @@ Deployment is three moves — **clone, configure, then apply the manifests in de
    1. **CoreDNS + Traefik** — DNS and the ingress / TLS edge
    2. **Dex** (+ signup) — authentication
    3. **whoami** *(optional)* — verify the auth chain before going further
-   4. **PostgreSQL** — then create the `immunoplex` database, load `i-spi-db.sql`, and make sure the `calib_*` calibration tables exist (the worker **writes** them and I-SPI **reads** them)
+   4. **PostgreSQL** — then create the `immunoplex` database, and load the schema from [`db/`](db/README.md) (I-SPI's tables plus the `calib_*` calibration tables, which the worker **writes** and I-SPI **reads**)
    5. **i-spi-compute** (Redis + API + worker) — the **required** fitting tier (curveR); bring it up **before** I-SPI so the enqueue path has somewhere to go
    6. **I-SPI** — the analysis front end; it enqueues fits to i-spi-compute and reads results back from `calib_*`. After this you have a working analysis instance.
 

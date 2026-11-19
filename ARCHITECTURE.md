@@ -160,8 +160,8 @@ browser follows it, while the server-to-server token exchange uses the **interna
 
 ### 3.3 Data: PostgreSQL
 
-A single PostgreSQL instance is the system of record, holding the `immunoplex` database (loaded
-from `i-spi-db.sql`). The deployment is deliberately hardened by an init script: it rewrites
+A single PostgreSQL instance is the system of record, holding the `immunoplex` database (its schema
+loaded from `db/`, see `db/README.md`). The deployment is deliberately hardened by an init script: it rewrites
 `pg_hba.conf` to **reject all non-TLS connections** and require `md5` over TLS, generates a
 self-signed server certificate, and revokes default `PUBLIC` privileges. Because non-TLS is
 rejected, every client must connect over SSL — which is why I-SPI connects with `sslmode=require`
@@ -317,7 +317,7 @@ Apply bottom-up so each consumer's dependency is already answering when it start
 
 In words: namespace and (on K3s) cert-manager + the CA + CoreDNS first; then Traefik; then Dex
 and signup; verify with whoami; then PostgreSQL (create the `immunoplex` database and load
-`i-spi-db.sql`, which includes the `calib_*` calibration tables); then **i-spi-compute**
+the schema from `db/`, which includes the `calib_*` calibration tables); then **i-spi-compute**
 (`i-spi-compute.yml` — Redis, API, worker) since I-SPI's fit path depends on the API being
 reachable; then I-SPI — at which point you have a fully working analysis instance. Each
 application step should pair `kubectl apply` with `kubectl wait --for=condition=ready` before

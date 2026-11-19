@@ -121,7 +121,7 @@ sudo kubectl -n immunoplex wait --for=condition=ready pod -l app=whoami --timeou
 sudo kubectl -n immunoplex apply -f postgresql.yml
 sudo kubectl -n immunoplex wait --for=condition=ready pod -l app=postgresql --timeout=5m
 sudo kubectl -n immunoplex exec -it deploy/postgresql -- psql -U postgres -c "CREATE DATABASE immunoplex;"
-sudo kubectl -n immunoplex exec -it deploy/postgresql -- psql -U postgres immunoplex < db-dumps/i-spi-db.sql
+cat db/[0-9][0-9]_*.sql | sudo kubectl -n immunoplex exec -i deploy/postgresql -- psql -v ON_ERROR_STOP=1 -U postgres immunoplex   # schema: see db/README.md
 
 # 5. i-spi-compute — the REQUIRED fitting tier (Redis + API + worker).
 #    Bring it up BEFORE I-SPI so the enqueue path has somewhere to go.

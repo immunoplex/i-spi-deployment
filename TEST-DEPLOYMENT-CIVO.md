@@ -32,7 +32,7 @@ You will need:
 - A Civo account (sign up at `dashboard.civo.com/signup`; the free credit covers this test).
 - An SSH key pair on your laptop (`ssh-keygen -t ed25519` if you don't have one).
 - `kubectl` on your laptop (optional — you can run everything over SSH on the node instead).
-- The deployment repo and the **`i-spi-db.sql`** dump (you already have these), plus the
+- The deployment repo and its **`db/`** schema files (you already have these), plus the
   corrected manifests from this `standalone-i-spi/` folder.
 - A decision on **hostname** (see Phase 2) — the single most important choice, because it is
   baked into every OAuth redirect URL.
@@ -213,11 +213,9 @@ sudo kubectl -n immunoplex wait --for=condition=ready pod -l app=whoami --timeou
 sudo kubectl -n immunoplex apply -f postgresql.yml
 sudo kubectl -n immunoplex wait --for=condition=ready pod -l app=postgresql --timeout=5m
 sudo kubectl -n immunoplex exec -it deploy/postgresql -- psql -U postgres -c "CREATE DATABASE immunoplex;"
-sudo kubectl -n immunoplex exec -i deploy/postgresql -- psql -U postgres immunoplex < ../db-dumps/i-spi-db.sql
-# Apply the compute-tier's own schema once (curve fits / concentration results --
-# NOT included in i-spi-db.sql; vendored here from i-spi-compute/db/calib_schema_v1.sql,
-# keep it in sync with that repo if the schema changes):
-sudo kubectl -n immunoplex exec -i deploy/postgresql -- psql -U postgres immunoplex < ../db-dumps/calib_schema_v1.sql
+# Load the complete schema (I-SPI core, calib_* results, default settings) from
+# db/ -- the files run in name order; see db/README.md:
+cat ../db/[0-9][0-9]_*.sql | sudo kubectl -n immunoplex exec -i deploy/postgresql -- psql -v ON_ERROR_STOP=1 -U postgres immunoplex
 
 # i-spi-compute (REQUIRED -- I-SPI submits fit jobs here; apply and wait before I-SPI)
 sudo kubectl -n immunoplex apply -f i-spi-compute.yml
