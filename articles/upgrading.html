@@ -20,7 +20,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">ispideployment</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">1.9.9</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.0.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -99,7 +99,7 @@ no releases, to a digest. The current set:</p>
 <tr class="even">
 <td>i-spi-compute API and worker</td>
 <td>
-<code>1.1.0</code> (curveRcore 0.7.0, curveRfreq 0.5.2, curveRbayes
+<code>1.1.1</code> (curveRcore 0.7.0, curveRfreq 0.5.2, curveRbayes
 0.5.2, curveRweights 0.3.0, CmdStan 2.40.0)</td>
 </tr>
 <tr class="odd">
@@ -139,6 +139,28 @@ stack</a>, change <code>local/docker-compose.yml</code> and run
 <p>The schema files in <a href="database-schema.html"><code>db/</code></a> are only for a new,
 empty database. Do not load them into a database that already has
 data.</p>
+<div class="section level3">
+<h3 id="from-i-spi-compute-1-1-0-to-1-1-1">From i-spi-compute 1.1.0 to 1.1.1<a class="anchor" aria-label="anchor" href="#from-i-spi-compute-1-1-0-to-1-1-1"></a>
+</h3>
+<p>The 1.1.0 worker stored no back-calculated standard or control
+estimates for Bayesian fits saved without posterior draws (the default).
+After upgrading, fill them in from the stored fits; nothing is refitted.
+Find the affected curves:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode sql"><code class="sourceCode sql"><span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a><span class="kw">SELECT</span> s.curve_id</span>
+<span id="cb1-2"><a href="#cb1-2" tabindex="-1"></a><span class="kw">FROM</span> madi_results.calib_standards s</span>
+<span id="cb1-3"><a href="#cb1-3" tabindex="-1"></a><span class="kw">JOIN</span> madi_results.calib_fit f</span>
+<span id="cb1-4"><a href="#cb1-4" tabindex="-1"></a>  <span class="kw">ON</span> f.curve_id <span class="op">=</span> s.curve_id <span class="kw">AND</span> f.<span class="kw">method</span> <span class="op">=</span> s.<span class="kw">method</span> <span class="kw">AND</span> f.is_best</span>
+<span id="cb1-5"><a href="#cb1-5" tabindex="-1"></a><span class="kw">WHERE</span> s.<span class="kw">method</span> <span class="op">=</span> <span class="st">'bayesian'</span></span>
+<span id="cb1-6"><a href="#cb1-6" tabindex="-1"></a><span class="kw">GROUP</span> <span class="kw">BY</span> s.curve_id</span>
+<span id="cb1-7"><a href="#cb1-7" tabindex="-1"></a><span class="kw">HAVING</span> bool_and(s.pcov <span class="kw">IS</span> <span class="kw">NULL</span> <span class="kw">AND</span> s.predicted_log10_concentration <span class="kw">IS</span> <span class="kw">NULL</span>);</span></code></pre></div>
+<p>Then run i-spi-compute’s <a href="https://github.com/immunoplex/i-spi-compute/blob/main/worker/backfill_point_estimates.R" class="external-link"><code>worker/backfill_point_estimates.R</code></a>
+for those curves only, with the worker’s <code>DB_*</code> environment,
+first with <code>--dry-run</code>:</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode sh"><code class="sourceCode bash"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a><span class="ex">Rscript</span> backfill_point_estimates.R <span class="at">--method</span> bayesian <span class="at">--curve_ids</span> 101,102,103 <span class="at">--dry-run</span></span>
+<span id="cb2-2"><a href="#cb2-2" tabindex="-1"></a><span class="ex">Rscript</span> backfill_point_estimates.R <span class="at">--method</span> bayesian <span class="at">--curve_ids</span> 101,102,103</span></code></pre></div>
+<p>Pass <code>--curve_ids</code>: without it the script also revisits
+every Bayesian curve that has no control wells.</p>
+</div>
 </div>
 <div class="section level2">
 <h2 id="rolling-back">Rolling back<a class="anchor" aria-label="anchor" href="#rolling-back"></a>

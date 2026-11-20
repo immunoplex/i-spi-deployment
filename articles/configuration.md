@@ -54,7 +54,7 @@ For development, I-SPI also reads `LOCAL_DEV` and `LOCAL_DEV_EMAIL`:
 with `LOCAL_DEV=1` it skips sign-in and acts as `LOCAL_DEV_EMAIL`. Never
 set `LOCAL_DEV` in a deployment.
 
-**i-spi-compute 1.1.0 API** (`i-spi-compute.yml`)
+**i-spi-compute 1.1.1 API** (`i-spi-compute.yml`)
 
 | Variable | Meaning |
 |----|----|
@@ -62,7 +62,7 @@ set `LOCAL_DEV` in a deployment.
 | `API_KEY` | every request except `/health` must send it as the `X-API-Key` header |
 | `ROOT_PATH` | the public path prefix, used in the API’s own documentation links |
 
-**i-spi-compute 1.1.0 worker** (`i-spi-compute.yml`)
+**i-spi-compute 1.1.1 worker** (`i-spi-compute.yml`)
 
 | Variable | Meaning |
 |----|----|

@@ -8,7 +8,7 @@ releases, to a digest. The current set:
 | Component | Version |
 |----|----|
 | I-SPI | `1.1.1` |
-| i-spi-compute API and worker | `1.1.0` (curveRcore 0.7.0, curveRfreq 0.5.2, curveRbayes 0.5.2, curveRweights 0.3.0, CmdStan 2.40.0) |
+| i-spi-compute API and worker | `1.1.1` (curveRcore 0.7.0, curveRfreq 0.5.2, curveRbayes 0.5.2, curveRweights 0.3.0, CmdStan 2.40.0) |
 | Database schema (calib schema) | `0.7.0` |
 
 The [automated
@@ -44,6 +44,36 @@ The schema files in
 [`db/`](https://immunoplex.github.io/i-spi-deployment/articles/database-schema.md)
 are only for a new, empty database. Do not load them into a database
 that already has data.
+
+### From i-spi-compute 1.1.0 to 1.1.1
+
+The 1.1.0 worker stored no back-calculated standard or control estimates
+for Bayesian fits saved without posterior draws (the default). After
+upgrading, fill them in from the stored fits; nothing is refitted. Find
+the affected curves:
+
+``` sql
+SELECT s.curve_id
+FROM madi_results.calib_standards s
+JOIN madi_results.calib_fit f
+  ON f.curve_id = s.curve_id AND f.method = s.method AND f.is_best
+WHERE s.method = 'bayesian'
+GROUP BY s.curve_id
+HAVING bool_and(s.pcov IS NULL AND s.predicted_log10_concentration IS NULL);
+```
+
+Then run i-spi-compute’s
+[`worker/backfill_point_estimates.R`](https://github.com/immunoplex/i-spi-compute/blob/main/worker/backfill_point_estimates.R)
+for those curves only, with the worker’s `DB_*` environment, first with
+`--dry-run`:
+
+``` sh
+Rscript backfill_point_estimates.R --method bayesian --curve_ids 101,102,103 --dry-run
+Rscript backfill_point_estimates.R --method bayesian --curve_ids 101,102,103
+```
+
+Pass `--curve_ids`: without it the script also revisits every Bayesian
+curve that has no control wells.
 
 ## Rolling back
 
