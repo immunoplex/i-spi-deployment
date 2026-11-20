@@ -17,7 +17,7 @@
   <line x1="640" y1="34" x2="676" y2="34" stroke="#475569" stroke-width="2"/>
   <text x="682" y="38" font-size="11" fill="#64748b">required flow</text>
   <line x1="640" y1="54" x2="676" y2="54" stroke="#94a3b8" stroke-width="2" stroke-dasharray="5 4"/>
-  <text x="682" y="58" font-size="11" fill="#64748b">optional (not deployed by default)</text>
+  <text x="682" y="58" font-size="11" fill="#64748b">optional test page</text>
 
   <!-- USER -->
   <rect x="310" y="82" width="280" height="42" rx="21" fill="#ffffff" stroke="#64748b" stroke-width="1.5"/>
@@ -56,7 +56,7 @@
   <text x="56" y="454" font-size="12" font-weight="700" letter-spacing="1.5" fill="#047857">APPLICATION</text>
   <rect x="270" y="466" width="360" height="52" rx="8" fill="#ffffff" stroke="#10b981" stroke-width="1.5"/>
   <text x="450" y="488" font-size="15" font-weight="600" fill="#0f172a" text-anchor="middle">I-SPI &#183; R Shiny app</text>
-  <text x="450" y="506" font-size="10.5" fill="#64748b" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">:3838 &#183; in-process fitting: stanassay/Stan + JAGS</text>
+  <text x="450" y="506" font-size="10.5" fill="#64748b" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">:3838 &#183; analysis UI &#183; sends every fit to i-spi-compute</text>
 
   <!-- DATA LAYER -->
   <rect x="40" y="552" width="820" height="96" rx="12" fill="#fffbeb" stroke="#fcd34d" stroke-width="1.5"/>
@@ -65,24 +65,24 @@
   <text x="450" y="608" font-size="15" font-weight="600" fill="#0f172a" text-anchor="middle">PostgreSQL</text>
   <text x="450" y="626" font-size="10.5" fill="#64748b" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">:5432 &#183; TLS, hardened &#183; db immunoplex / madi_results</text>
 
-  <!-- BATCH LAYER (optional) -->
-  <rect x="40" y="678" width="820" height="140" rx="12" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="6 4"/>
-  <text x="56" y="700" font-size="11" font-weight="700" letter-spacing="1" fill="#475569">batch-calculator.yml &#8212; OPTIONAL, NOT INVOKED BY THIS BUILD</text>
+  <!-- COMPUTE LAYER (required) -->
+  <rect x="40" y="678" width="820" height="140" rx="12" fill="#ecfeff" stroke="#67e8f9" stroke-width="1.5"/>
+  <text x="56" y="700" font-size="12" font-weight="700" letter-spacing="1.5" fill="#0e7490">CURVE FITTING &#183; i-spi-compute (REQUIRED)</text>
   <!-- api -->
-  <rect x="56" y="716" width="240" height="84" rx="8" fill="#ffffff" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="5 4"/>
-  <text x="176" y="742" font-size="13" font-weight="600" fill="#334155" text-anchor="middle">batch-calculator-api</text>
-  <text x="176" y="762" font-size="11.5" fill="#64748b" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">:8000</text>
-  <text x="176" y="781" font-size="11" fill="#94a3b8" text-anchor="middle">external fitting API</text>
+  <rect x="56" y="716" width="240" height="84" rx="8" fill="#ffffff" stroke="#06b6d4" stroke-width="1.5"/>
+  <text x="176" y="742" font-size="14" font-weight="600" fill="#0f172a" text-anchor="middle">i-spi-compute-api</text>
+  <text x="176" y="762" font-size="11.5" fill="#64748b" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">:8000 &#183; FastAPI</text>
+  <text x="176" y="781" font-size="11" fill="#94a3b8" text-anchor="middle">accepts and reports fit jobs</text>
   <!-- redis -->
-  <rect x="330" y="716" width="240" height="84" rx="8" fill="#ffffff" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="5 4"/>
-  <text x="450" y="742" font-size="13" font-weight="600" fill="#334155" text-anchor="middle">batch-calculator-redis</text>
+  <rect x="330" y="716" width="240" height="84" rx="8" fill="#ffffff" stroke="#06b6d4" stroke-width="1.5"/>
+  <text x="450" y="742" font-size="14" font-weight="600" fill="#0f172a" text-anchor="middle">i-spi-compute-redis</text>
   <text x="450" y="762" font-size="11.5" fill="#64748b" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">:6379</text>
-  <text x="450" y="781" font-size="11" fill="#94a3b8" text-anchor="middle">dedicated job queue</text>
+  <text x="450" y="781" font-size="11" fill="#94a3b8" text-anchor="middle">job queue</text>
   <!-- worker -->
-  <rect x="604" y="716" width="240" height="84" rx="8" fill="#ffffff" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="5 4"/>
-  <text x="724" y="742" font-size="13" font-weight="600" fill="#334155" text-anchor="middle">batch-calculator-worker</text>
-  <text x="724" y="762" font-size="11" fill="#94a3b8" text-anchor="middle">writes PG</text>
-  <text x="724" y="781" font-size="11" fill="#94a3b8" text-anchor="middle">external fitting worker</text>
+  <rect x="604" y="716" width="240" height="84" rx="8" fill="#ffffff" stroke="#06b6d4" stroke-width="1.5"/>
+  <text x="724" y="742" font-size="14" font-weight="600" fill="#0f172a" text-anchor="middle">i-spi-compute-worker</text>
+  <text x="724" y="762" font-size="11.5" fill="#64748b" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">curveR + CmdStan</text>
+  <text x="724" y="781" font-size="11" fill="#94a3b8" text-anchor="middle">fits curves, estimates points</text>
 
   <!-- ARROWS -->
   <!-- User -> Traefik -->
@@ -107,13 +107,18 @@
 
   <!-- I-SPI -> PostgreSQL -->
   <line x1="450" y1="518" x2="450" y2="584" stroke="#475569" stroke-width="2" marker-end="url(#ah)"/>
-  <text x="460" y="546" font-size="10.5" fill="#475569">fit + read/write results (madi_results)</text>
+  <text x="460" y="546" font-size="10.5" fill="#475569">projects, assay data; reads fit results</text>
 
-  <!-- batch worker -> PostgreSQL (optional) -->
-  <polyline points="724,716 724,664 560,664 560,640" fill="none" stroke="#94a3b8" stroke-width="1.75" stroke-dasharray="5 4" marker-end="url(#ahd)"/>
-  <text x="598" y="660" font-size="10.5" fill="#64748b">same DB, if deployed</text>
+  <!-- I-SPI -> compute API (left of PostgreSQL) -->
+  <polyline points="270,506 176,506 176,714" fill="none" stroke="#475569" stroke-width="2" marker-end="url(#ah)"/>
+  <text x="168" y="604" font-size="10.5" fill="#475569" text-anchor="end">POST /jobs,</text>
+  <text x="168" y="618" font-size="10.5" fill="#475569" text-anchor="end">poll status</text>
 
-  <!-- api -> redis, worker -> redis (optional, job queue) -->
-  <line x1="296" y1="758" x2="328" y2="758" stroke="#94a3b8" stroke-width="1.75" stroke-dasharray="5 4" marker-end="url(#ahd)"/>
-  <line x1="604" y1="758" x2="572" y2="758" stroke="#94a3b8" stroke-width="1.75" stroke-dasharray="5 4" marker-end="url(#ahd)"/>
+  <!-- worker -> PostgreSQL -->
+  <polyline points="724,716 724,664 560,664 560,640" fill="none" stroke="#475569" stroke-width="2" marker-end="url(#ah)"/>
+  <text x="598" y="658" font-size="10.5" fill="#475569">reads points, writes calib_*</text>
+
+  <!-- api -> redis (enqueue), worker -> redis (takes jobs) -->
+  <line x1="296" y1="758" x2="328" y2="758" stroke="#475569" stroke-width="2" marker-end="url(#ah)"/>
+  <line x1="604" y1="758" x2="572" y2="758" stroke="#475569" stroke-width="2" marker-end="url(#ah)"/>
 </svg>
