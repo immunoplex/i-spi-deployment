@@ -1,7 +1,7 @@
 # Schema manifest
 
 What the files in `db/` create, who uses each object, and what was left out.
-Checked against I-SPI 1.1.0 and i-spi-compute 1.1.0 (2026-11-19).
+Checked against I-SPI 1.1.0 and i-spi-compute 1.1.0 (2026-11-19); I-SPI 1.1.1 changes no database objects.
 
 - **A** is the I-SPI app (`immunoplex/i-spi`, `src/`).
 - **W** is the i-spi-compute worker. The compute API itself does not touch the

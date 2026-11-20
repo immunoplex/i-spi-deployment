@@ -1,5 +1,5 @@
 # =============================================================================
-# i-spi.yml -- I-SPI 1.1.0, the analysis front end (R Shiny)
+# i-spi.yml -- I-SPI 1.1.1, the analysis front end (R Shiny)
 #
 # Serves https://IMMUNOPLEX_HOSTNAME/i-spi/. Users sign in through Dex
 # (dex.yml). I-SPI reads and writes the `immunoplex` database (postgresql.yml,
@@ -11,7 +11,7 @@
 # The database password comes from the `postgresql` Secret (postgresql.yml),
 # the compute API key from the `i-spi-compute` Secret (i-spi-compute.yml).
 #
-# Environment: exactly the variables I-SPI 1.1.0 reads.
+# Environment: exactly the variables I-SPI 1.1.1 reads.
 #   db, db_host, db_port, db_userid_x, db_pwd_x   database (TLS is required)
 #   DEX_ISSUER, DEX_INTERNAL_URL, DEX_CLIENT_ID,
 #   DEX_CLIENT_SECRET, APP_REDIRECT_URI           sign-in (OIDC)
@@ -97,7 +97,7 @@ spec:
         app: i-spi
     spec:
       containers:
-        - image: ghcr.io/immunoplex/i-spi:1.1.0
+        - image: ghcr.io/immunoplex/i-spi:1.1.1
           imagePullPolicy: IfNotPresent
           name: i-spi
           # Sized for interactive sessions; the fitting load is on the

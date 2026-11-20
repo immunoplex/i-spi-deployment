@@ -53,10 +53,10 @@ No operator, no Helm, no service mesh — plain YAML applied with `kubectl`.
 |---|---|---|---|---|---|
 | **Traefik** | `traefik:v3.5.4` | 80, 443 | No | — | Entry point, TLS, routing |
 | **Dex** | `dexidp/dex:v2.44.0-alpine` | 5556, 5557 | Yes (1G PVC, SQLite) | Traefik, cert-manager | OIDC identity provider |
-| **dex-account** | `ghcr.io/immunoplex/signup:main` | 8080 | No | Dex (gRPC) | Self-service signup |
+| **dex-account** | `ghcr.io/immunoplex/signup:main`, pinned by digest in `dex.yml` | 8080 | No | Dex (gRPC) | Self-service signup |
 | **whoami** *(optional)* | `traefik/whoami`, `oauth2-proxy:v7.8.1` | 80, 8080 | No | Dex | Auth-chain verification |
 | **PostgreSQL** | `postgres:17.2` | 5432 | Yes (20G PVC) | — | System of record (`immunoplex` db) |
-| **I-SPI** | `ghcr.io/immunoplex/i-spi:1.1.0` | 3838 | No (uses PG) | PostgreSQL, Dex, i-spi-compute API | The analysis app (enqueues fits, reads results) |
+| **I-SPI** | `ghcr.io/immunoplex/i-spi:1.1.1` | 3838 | No (uses PG) | PostgreSQL, Dex, i-spi-compute API | The analysis app (enqueues fits, reads results) |
 | **i-spi-compute-api** | `ghcr.io/immunoplex/i-spi-compute-api:1.1.0` | 8000 | No | i-spi-compute Redis | **Required.** Job API — accepts/lists/cancels fit jobs |
 | **i-spi-compute-redis** | `redis:7.4` | 6379 | No | — | **Required.** Dedicated job queue for the fitting tier |
 | **i-spi-compute-worker** | `ghcr.io/immunoplex/i-spi-compute-worker:1.1.0` | — | No (writes PG) | i-spi-compute Redis, PostgreSQL | **Required.** curveR worker — runs fits, writes `calib_*` |
@@ -342,7 +342,7 @@ enqueue → worker → `calib_*` → read chain.
   PVC. Use `pg_dump` for the database; don't forget the Dex PVC if you want to preserve user
   accounts. The i-spi-compute Redis queue is transient (in-flight jobs only) and does not need
   backup.
-- **Upgrades.** Images are pinned to release tags (I-SPI and i-spi-compute `1.1.0`). To
+- **Upgrades.** Images are pinned to release tags (I-SPI `1.1.1`, i-spi-compute `1.1.0`). To
   upgrade, change the tags and re-apply; to roll back, apply the previous tags. A new calib
   schema version comes with an i-spi-compute migration for existing databases.
 - **Scaling.** Fitting runs in the i-spi-compute worker, so the way to fit faster is to give the

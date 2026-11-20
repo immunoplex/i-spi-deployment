@@ -1,0 +1,56 @@
+# Checks for every pull request and every push to main. See tests/README.md;
+# each job runs the same script a contributor can run locally.
+name: checks
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  db:
+    name: database schema loads (db/)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: PostgreSQL 16 binaries
+        run: |
+          if [ ! -x /usr/lib/postgresql/16/bin/initdb ]; then
+            sudo apt-get update -q && sudo apt-get install -y -q postgresql-16
+          fi
+          /usr/lib/postgresql/16/bin/initdb --version
+      - name: load db/ into an empty cluster and run the smoke checks
+        run: db/tests/load_test.sh /usr/lib/postgresql/16/bin
+
+  manifests:
+    name: manifests are consistent
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -q pyyaml
+      - run: python tests/check_manifests.py
+
+  e2e:
+    name: local stack runs a real fit
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    needs: [db, manifests]
+    steps:
+      - uses: actions/checkout@v4
+      - name: free disk space for the worker image (~5 GB)
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+          df -h /
+      - name: compose stack, seed, fit, check
+        env:
+          PYTHON: python3
+          JOB_TIMEOUT: "1500"
+        run: tests/e2e/run_e2e.sh
