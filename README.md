@@ -14,7 +14,7 @@ bead-based immunoassay data, with its curve-fitting tier **i-spi-compute**.
 | install without internet access | [Without internet access](https://immunoplex.github.io/i-spi-deployment/articles/install-airgapped.html) |
 | move to a new release | [Upgrading and rolling back](https://immunoplex.github.io/i-spi-deployment/articles/upgrading.html) |
 
-Current versions: I-SPI `1.1.1`, i-spi-compute `1.1.0`, calib schema `0.7.0`.
+Current versions: I-SPI `1.1.1`, i-spi-compute `1.1.1`, calib schema `0.7.0`.
 
 ## What is in this repository
 

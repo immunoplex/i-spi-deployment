@@ -13,7 +13,7 @@
 #
 # The schema in ../db is loaded the first time PostgreSQL starts with an empty
 # volume. `docker compose down -v` deletes the data and starts over.
-# Same images as the Kubernetes manifests: I-SPI 1.1.1, i-spi-compute 1.1.0.
+# Same images as the Kubernetes manifests: I-SPI 1.1.1, i-spi-compute 1.1.1.
 # =============================================================================
 
 name: i-spi-local
@@ -68,7 +68,7 @@ services:
       REDIS_AUTH: ${REDIS_AUTH}
 
   i-spi-compute-api:
-    image: ghcr.io/immunoplex/i-spi-compute-api:1.1.0
+    image: ghcr.io/immunoplex/i-spi-compute-api:1.1.1
     environment:
       REDIS_HOST: i-spi-compute-redis
       REDIS_PORT: "6379"
@@ -82,7 +82,7 @@ services:
         condition: service_healthy
 
   i-spi-compute-worker:
-    image: ghcr.io/immunoplex/i-spi-compute-worker:1.1.0
+    image: ghcr.io/immunoplex/i-spi-compute-worker:1.1.1
     environment:
       REDIS_HOST: i-spi-compute-redis
       REDIS_PORT: "6379"
