@@ -1,5 +1,5 @@
 # =============================================================================
-# i-spi-compute.yml -- i-spi-compute 1.1.0, the REQUIRED fitting tier
+# i-spi-compute.yml -- i-spi-compute 1.1.1, the REQUIRED fitting tier
 #
 #   I-SPI --POST /jobs--> API --> Redis queue --> worker (curveR) --> calib_*
 #                                                                  <-- I-SPI reads
@@ -93,7 +93,7 @@ spec:
     spec:
       containers:
         - name: i-spi-compute-api
-          image: ghcr.io/immunoplex/i-spi-compute-api:1.1.0
+          image: ghcr.io/immunoplex/i-spi-compute-api:1.1.1
           imagePullPolicy: IfNotPresent
           env:
             - { name: REDIS_HOST, value: i-spi-compute-redis }
@@ -145,7 +145,7 @@ spec:
         kubernetes.io/arch: amd64   # Stan models are compiled for amd64
       containers:
         - name: i-spi-compute-worker
-          image: ghcr.io/immunoplex/i-spi-compute-worker:1.1.0
+          image: ghcr.io/immunoplex/i-spi-compute-worker:1.1.1
           imagePullPolicy: IfNotPresent
           env:
             - { name: REDIS_HOST, value: i-spi-compute-redis }
