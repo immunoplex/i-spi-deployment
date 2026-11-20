@@ -1,0 +1,52 @@
+---
+title: "Upgrading and rolling back"
+---
+
+## What is pinned
+
+Every image is pinned to a release tag or, where a project publishes no
+releases, to a digest. The current set:
+
+| Component | Version |
+|---|---|
+| I-SPI | `1.1.1` |
+| i-spi-compute API and worker | `1.1.0` (curveRcore 0.7.0, curveRfreq 0.5.2, curveRbayes 0.5.2, curveRweights 0.3.0, CmdStan 2.40.0) |
+| Database schema (calib schema) | `0.7.0` |
+
+The [automated checks](checks.html) fail if an ImmunoPlex image is not pinned,
+or if the Kubernetes manifests and the Compose file use different versions.
+
+I-SPI's About page (in its sidebar) shows the running I-SPI version, the
+database's calib schema version, and which compute releases produced the
+stored results.
+
+## Upgrading
+
+1. Read what changed: I-SPI's
+   [`CHANGELOG.md`](https://github.com/immunoplex/i-spi/blob/main/CHANGELOG.md),
+   and for i-spi-compute its [tags](https://github.com/immunoplex/i-spi-compute/tags)
+   and the README in `worker/migrations/`.
+2. **If the new i-spi-compute release brings a new calib schema version**,
+   apply its migration to the existing database before starting the new
+   worker. Migrations are in i-spi-compute's
+   [`worker/migrations/`](https://github.com/immunoplex/i-spi-compute/tree/main/worker/migrations),
+   with instructions in that folder's README. The table `schema_version`
+   records which version the database holds.
+3. Change the image tags in the manifests (`i-spi.yml`, `i-spi-compute.yml`,
+   and `i-spi-compute-sim.yml` if used) and apply them. On the
+   [local stack](install-local.html), change `local/docker-compose.yml` and run
+   `docker compose up -d`.
+4. Check the About page.
+
+The schema files in [`db/`](database-schema.html) are only for a new, empty
+database. Do not load them into a database that already has data.
+
+## Rolling back
+
+Apply the previous image tags. A rollback of I-SPI or of the worker alone does
+not touch the database.
+
+The migrations so far only add tables, columns and views, so older images keep
+working with a newer schema: I-SPI 1.0.0 runs against calib schema 0.7.0. A
+migration cannot be undone by changing images; restore from a database backup
+if you need the old schema itself. Take a `pg_dump` before every migration.

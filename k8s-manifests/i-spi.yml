@@ -6,7 +6,7 @@
 # schema from db/) and sends every curve fit to i-spi-compute (i-spi-compute.yml),
 # which is REQUIRED: I-SPI does not fit curves itself.
 #
-# Placeholders, replaced by the `sed` step (README-STANDALONE-ISPI.md):
+# Placeholders, replaced by the `sed` step (docs: articles/install-cluster.html#configure):
 #   IMMUNOPLEX_HOSTNAME, IMMUNOPLEX_OAUTH_CLIENT_ID, IMMUNOPLEX_OAUTH_SECRET.
 # The database password comes from the `postgresql` Secret (postgresql.yml),
 # the compute API key from the `i-spi-compute` Secret (i-spi-compute.yml).

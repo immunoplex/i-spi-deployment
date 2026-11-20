@@ -127,13 +127,13 @@ spec:
           - 'sh'
           - '-c'
           - |
-            if [ ! -d /var/www/web ]; then
+            if [ ! -d /var/dex/web ]; then
               cd /var/dex
-              wget https://github.com/immunoplex/deployment/raw/refs/heads/main/templates/web.zip
+              wget https://github.com/immunoplex/i-spi-deployment/raw/refs/heads/main/templates/web.zip
               unzip -q web.zip
               rm web.zip
             else
-              echo "/var/www/web already exists, skipping download"
+              echo "/var/dex/web already exists, skipping download"
             fi
         volumeMounts:
         - name: storage

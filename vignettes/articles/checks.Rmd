@@ -1,0 +1,20 @@
+---
+title: "Automated checks"
+---
+
+```{r setup, include = FALSE}
+# The text below is tests/README.md, included so there is one copy to maintain.
+include_md <- function(path, base) {
+  x <- readLines(path, encoding = "UTF-8", warn = FALSE)
+  if (length(x) && grepl("^# ", x[1])) x <- x[-1]          # the article has its own title
+  x <- gsub("\\]\\((?!https?://|#)([^)]+)\\)", paste0("](", base, "\\1)"), x, perl = TRUE)
+  knitr::asis_output(paste(x, collapse = "\n"))
+}
+```
+
+```{r, echo = FALSE}
+include_md("../../tests/README.md", "https://github.com/immunoplex/i-spi-deployment/blob/main/tests/")
+```
+
+A fourth workflow, `.github/workflows/pkgdown.yml`, builds this site on every
+pull request and publishes it from `main`.

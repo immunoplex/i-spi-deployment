@@ -1,0 +1,65 @@
+url: https://immunoplex.github.io/i-spi-deployment/
+
+template:
+  bootstrap: 5
+
+home:
+  title: I-SPI deployment
+  description: >
+    How to install, configure and upgrade I-SPI and its curve-fitting tier
+    i-spi-compute: locally with Docker Compose, on your own Kubernetes cluster,
+    in the cloud, or without internet access.
+
+navbar:
+  structure:
+    left: [overview, install, reference]
+    right: [search, github]
+  components:
+    overview:
+      text: Get started
+      href: articles/overview.html
+    install:
+      text: Install
+      menu:
+        - text: "On one machine (Docker Compose)"
+          href: articles/install-local.html
+        - text: "On your own cluster (K3s or Kubernetes)"
+          href: articles/install-cluster.html
+        - text: "In the cloud (incl. EU data residency)"
+          href: articles/install-cloud.html
+        - text: "Without internet access"
+          href: articles/install-airgapped.html
+    reference:
+      text: Reference
+      menu:
+        - text: Configuration and secrets
+          href: articles/configuration.html
+        - text: Database schema
+          href: articles/database-schema.html
+        - text: Compute tiers
+          href: articles/compute-tiers.html
+        - text: Upgrading and rolling back
+          href: articles/upgrading.html
+        - text: Automated checks
+          href: articles/checks.html
+
+articles:
+  - title: Get started
+    navbar: ~
+    contents:
+      - articles/overview
+  - title: Install
+    navbar: ~
+    contents:
+      - articles/install-local
+      - articles/install-cluster
+      - articles/install-cloud
+      - articles/install-airgapped
+  - title: Reference
+    navbar: ~
+    contents:
+      - articles/configuration
+      - articles/database-schema
+      - articles/compute-tiers
+      - articles/upgrading
+      - articles/checks
