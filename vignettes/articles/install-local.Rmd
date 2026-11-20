@@ -1,0 +1,24 @@
+---
+title: "On one machine (Docker Compose)"
+---
+
+```{r setup, include = FALSE}
+# The text below is local/README.md, included so there is one copy to maintain.
+include_md <- function(path, base) {
+  x <- readLines(path, encoding = "UTF-8", warn = FALSE)
+  if (length(x) && grepl("^# ", x[1])) x <- x[-1]          # the article has its own title
+  # links relative to the file's folder -> the file on GitHub
+  x <- gsub("\\]\\((?!https?://|#)([^)]+)\\)", paste0("](", base, "\\1)"), x, perl = TRUE)
+  knitr::asis_output(paste(x, collapse = "\n"))
+}
+```
+
+The folder [`local/`](https://github.com/immunoplex/i-spi-deployment/tree/main/local)
+runs the whole system with `docker compose`, no Kubernetes needed. It is the
+quickest way to try I-SPI, to test a release, or to develop against real
+services. The automated end-to-end check uses the same stack; see
+[Automated checks](checks.html).
+
+```{r, echo = FALSE}
+include_md("../../local/README.md", "https://github.com/immunoplex/i-spi-deployment/blob/main/local/")
+```

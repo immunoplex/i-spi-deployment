@@ -13,7 +13,7 @@
 #   curveRbayes 0.5.2, curveRweights 0.3.0, CmdStan 2.40.0.
 # The database must hold calib schema 0.7.0 (load db/ into a new database).
 #
-# Placeholders, replaced by the `sed` step (README-STANDALONE-ISPI.md):
+# Placeholders, replaced by the `sed` step (docs: articles/install-cluster.html#configure):
 #   IMMUNOPLEX_API_KEY, IMMUNOPLEX_REDIS_AUTH (both `openssl rand -hex 32`),
 #   IMMUNOPLEX_HOSTNAME (only for the optional Ingress at the end).
 # The API key is shared with I-SPI, which reads it from this file's Secret.

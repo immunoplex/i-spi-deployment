@@ -5,11 +5,13 @@ Usage (from the repo root):  python3 tests/check_manifests.py      (needs PyYAML
 1. Every k8s-manifests/*.yml and local/docker-compose.yml parses as YAML.
 2. Every secretKeyRef in the manifests names a Secret defined in k8s-manifests/.
 3. Every IMMUNOPLEX_* placeholder in the manifests is filled by the `sed` step in
-   README-STANDALONE-ISPI.md.
+   the cluster install guide (vignettes/articles/install-cluster.Rmd).
 4. Every ghcr.io/immunoplex image is pinned to a version tag or a digest (not
    :main or :latest alone, not untagged), in the manifests and the Compose file.
 5. The I-SPI and i-spi-compute images are the same versions in the manifests and
    in the Compose file.
+6. Every image the manifests use is listed in the air-gapped install guide
+   (vignettes/articles/install-airgapped.Rmd), so its image list stays complete.
 Exit status 1 with a list of problems, 0 if all checks pass.
 """
 import glob
@@ -60,10 +62,17 @@ for f, name in refs:
 placeholders = set()
 for f in manifests:
     placeholders |= set(re.findall(r"IMMUNOPLEX_[A-Z_]+", open(f, encoding="utf-8").read()))
-guide = open("README-STANDALONE-ISPI.md", encoding="utf-8").read()
+GUIDE = "vignettes/articles/install-cluster.Rmd"
+guide = open(GUIDE, encoding="utf-8").read()
 for p in sorted(placeholders):
     if f"s/{p}/" not in guide:
-        problems.append(f"placeholder {p} is not filled by the sed step in README-STANDALONE-ISPI.md")
+        problems.append(f"placeholder {p} is not filled by the sed step in {GUIDE}")
+
+AIRGAP = "vignettes/articles/install-airgapped.Rmd"
+airgap = open(AIRGAP, encoding="utf-8").read()
+for img in sorted(images):
+    if f"`{img}`" not in airgap:
+        problems.append(f"image {img} ({', '.join(sorted(images[img]))}) is not listed in {AIRGAP}")
 
 compose = yaml.safe_load(open("local/docker-compose.yml", encoding="utf-8"))
 compose_images = {svc.get("image") for svc in compose["services"].values() if svc.get("image")}

@@ -5,3 +5,5 @@
 .sh
 .zip
 .Rproj
+# pkgdown site, built by CI
+docs/

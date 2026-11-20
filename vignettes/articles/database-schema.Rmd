@@ -1,0 +1,32 @@
+---
+title: "Database schema"
+---
+
+```{r setup, include = FALSE}
+# The sections below are db/README.md and db/MANIFEST.md, included so there is
+# one copy to maintain.
+include_md <- function(path, base, shift = 0L) {
+  x <- readLines(path, encoding = "UTF-8", warn = FALSE)
+  if (length(x) && grepl("^# ", x[1])) x <- x[-1]          # the article has its own title
+  if (shift > 0L) x <- sub("^(#+) ", paste0("\\1", strrep("#", shift), " "), x)
+  # links relative to the file's folder -> the file on GitHub
+  x <- gsub("\\]\\((?!https?://|#)([^)]+)\\)", paste0("](", base, "\\1)"), x, perl = TRUE)
+  knitr::asis_output(paste(x, collapse = "\n"))
+}
+base <- "https://github.com/immunoplex/i-spi-deployment/blob/main/db/"
+```
+
+The folder [`db/`](https://github.com/immunoplex/i-spi-deployment/tree/main/db)
+creates the complete schema in an empty database: tables, views, functions,
+triggers, and the default settings. An existing database is upgraded with
+i-spi-compute's migrations instead; see [Upgrading](upgrading.html).
+
+```{r, echo = FALSE}
+include_md("../../db/README.md", base)
+```
+
+## Manifest
+
+```{r, echo = FALSE}
+include_md("../../db/MANIFEST.md", base, shift = 1L)
+```
