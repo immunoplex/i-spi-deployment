@@ -38,7 +38,9 @@ jobs:
           needs: website
 
       - name: Build site
-        run: pkgdown::build_site_github_pages(new_process = FALSE, install = FALSE)
+        # examples = FALSE: this is a docs-only package with no R code; running
+        # examples would try to load the package, which is never installed.
+        run: pkgdown::build_site_github_pages(new_process = FALSE, install = FALSE, examples = FALSE)
         shell: Rscript {0}
 
       - name: Deploy to GitHub Pages
