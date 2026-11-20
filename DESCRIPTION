@@ -4,9 +4,10 @@ Version: 2.0.0
 Authors@R: person("Michael S.", "Zens", role = c("aut", "cre"))
 Description: Documentation only; this is not an installable R package. The file
     exists so that 'pkgdown' can build the deployment guides for I-SPI (an R
-    Shiny application for bead-based immunoassay data) and its curve-fitting
-    tier i-spi-compute: the Kubernetes manifests, the local Docker Compose
-    stack, the database schema, and how to install, configure and upgrade them.
+    Shiny application for immunoassay data: bead arrays, ELISA and flow
+    cytometry) and its curve-fitting tier i-spi-compute: the Kubernetes
+    manifests, the local Docker Compose stack, the database schema, and how to
+    install, configure and upgrade them.
 License: AGPL-3
 URL: https://immunoplex.github.io/i-spi-deployment/,
     https://github.com/immunoplex/i-spi-deployment
