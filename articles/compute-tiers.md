@@ -1,0 +1,63 @@
+# Compute tiers
+
+i-spi-compute can be scaled in two ways, and they solve different
+problems.
+
+## More workers on one tier: throughput
+
+One tier is one API, one Redis queue and one or more workers. Every
+worker takes jobs from the same queue, so raising `replicas` on the
+`i-spi-compute-worker` Deployment runs more jobs at once.
+
+Within one worker, fits also run in parallel: the worker fits several
+curve groups at the same time in child processes, each with its own
+database connection. How many depends on `WORKER_CORES` and the
+container’s memory limit. Set `WORKER_CORES` to the container’s CPU
+limit: the worker cannot see the limit itself and would otherwise start
+more processes than it has CPUs.
+
+## Several tiers: isolation
+
+A second tier is a complete second copy, with its own API, queue and
+workers, writing to the same database. Long jobs on one tier, such as a
+large simulation, then do not hold up everyday fits on the other. A
+second tier also lets a new worker release run on chosen studies before
+everywhere else.
+
+I-SPI chooses the tier per project or study with the
+**`compute_cluster`** setting:
+
+- empty or `default`: the tier in `ISPI_COMPUTE_URL` /
+  `ISPI_COMPUTE_API_KEY`;
+- any other value, for example `sim`: the tier in
+  `ISPI_COMPUTE_URL__SIM` / `ISPI_COMPUTE_API_KEY__SIM`.
+
+The value is matched without regard to case, with `-` read as `_`, so
+`sim`, `SIM` and `Sim` all select `__SIM`. A tier without its own API
+key uses the default key. A value that matches no variable falls back to
+the default tier, and I-SPI logs a warning. I-SPI reads these variables
+when it starts.
+
+## Adding the optional sim tier
+
+[`k8s-manifests/i-spi-compute-sim.yml`](https://github.com/immunoplex/i-spi-deployment/blob/main/k8s-manifests/i-spi-compute-sim.yml)
+is a ready second tier. It reuses the `i-spi-compute` Secret, so it has
+no Secret of its own and needs no new placeholder.
+
+1.  Apply it after `i-spi-compute.yml`:
+    `sudo kubectl -n immunoplex apply -f i-spi-compute-sim.yml`
+2.  In `i-spi.yml`, uncomment `ISPI_COMPUTE_URL__SIM` and
+    `ISPI_COMPUTE_API_KEY__SIM`, and apply it again. I-SPI restarts with
+    the new variables.
+3.  In I-SPI’s settings, set `compute_cluster` to `sim` for the projects
+    or studies that should use it.
+
+A third tier follows the same pattern: copy the file, rename every
+`-sim` to `-<name>`, and add `ISPI_COMPUTE_URL__<NAME>` to `i-spi.yml`.
+
+## Which to use
+
+- Fits queue up and every study is equally urgent: more worker replicas,
+  or larger workers.
+- One kind of work should not wait behind another, or should run on
+  separate hardware or a different release: a second tier.

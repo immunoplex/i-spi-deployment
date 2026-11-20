@@ -1,0 +1,119 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 840" width="900" height="840" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="ah" markerWidth="10" markerHeight="10" refX="7.5" refY="3" orient="auto" markerUnits="userSpaceOnUse">
+      <path d="M0,0 L7.5,3 L0,6 Z" fill="#475569"/>
+    </marker>
+    <marker id="ahd" markerWidth="10" markerHeight="10" refX="7.5" refY="3" orient="auto" markerUnits="userSpaceOnUse">
+      <path d="M0,0 L7.5,3 L0,6 Z" fill="#94a3b8"/>
+    </marker>
+  </defs>
+
+  <!-- panel -->
+  <rect x="6" y="6" width="888" height="828" rx="16" fill="#ffffff" stroke="#e2e8f0" stroke-width="2"/>
+
+  <!-- title + legend -->
+  <text x="32" y="40" font-size="23" font-weight="700" fill="#0f172a">I-SPI &#8212; Standalone Runtime Architecture</text>
+  <text x="32" y="60" font-size="12" fill="#94a3b8" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">one Kubernetes namespace &#183; plain Deployments + Services</text>
+  <line x1="640" y1="34" x2="676" y2="34" stroke="#475569" stroke-width="2"/>
+  <text x="682" y="38" font-size="11" fill="#64748b">required flow</text>
+  <line x1="640" y1="54" x2="676" y2="54" stroke="#94a3b8" stroke-width="2" stroke-dasharray="5 4"/>
+  <text x="682" y="58" font-size="11" fill="#64748b">optional (not deployed by default)</text>
+
+  <!-- USER -->
+  <rect x="310" y="82" width="280" height="42" rx="21" fill="#ffffff" stroke="#64748b" stroke-width="1.5"/>
+  <text x="450" y="108" font-size="14" font-weight="600" fill="#0f172a" text-anchor="middle">Researcher in a browser</text>
+
+  <!-- EDGE LAYER -->
+  <rect x="40" y="138" width="820" height="80" rx="12" fill="#eff6ff" stroke="#93c5fd" stroke-width="1.5"/>
+  <text x="56" y="160" font-size="12" font-weight="700" letter-spacing="1.5" fill="#1d4ed8">EDGE / INGRESS</text>
+  <rect x="300" y="166" width="300" height="44" rx="8" fill="#ffffff" stroke="#3b82f6" stroke-width="1.5"/>
+  <text x="450" y="186" font-size="15" font-weight="600" fill="#0f172a" text-anchor="middle">Traefik</text>
+  <text x="450" y="203" font-size="11" fill="#64748b" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">:80 / :443 &#183; TLS termination + routing</text>
+
+  <!-- AUTH LAYER -->
+  <rect x="40" y="246" width="820" height="158" rx="12" fill="#f5f3ff" stroke="#c4b5fd" stroke-width="1.5"/>
+  <text x="56" y="268" font-size="12" font-weight="700" letter-spacing="1.5" fill="#6d28d9">AUTHENTICATION (SSO)</text>
+  <!-- Dex -->
+  <rect x="56" y="286" width="240" height="100" rx="8" fill="#ffffff" stroke="#8b5cf6" stroke-width="1.5"/>
+  <text x="176" y="312" font-size="15" font-weight="600" fill="#0f172a" text-anchor="middle">Dex</text>
+  <text x="176" y="332" font-size="11.5" fill="#64748b" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">:5556 OIDC &#183; :5557 gRPC</text>
+  <text x="176" y="352" font-size="11" fill="#94a3b8" text-anchor="middle">OIDC provider, SQLite user store</text>
+  <text x="176" y="370" font-size="11" fill="#94a3b8" text-anchor="middle">(on its PVC)</text>
+  <!-- dex-account -->
+  <rect x="330" y="286" width="240" height="100" rx="8" fill="#ffffff" stroke="#8b5cf6" stroke-width="1.5"/>
+  <text x="450" y="312" font-size="15" font-weight="600" fill="#0f172a" text-anchor="middle">dex-account</text>
+  <text x="450" y="332" font-size="11" fill="#94a3b8" text-anchor="middle">self-service signup UI</text>
+  <text x="450" y="352" font-size="11.5" fill="#64748b" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">:8080 &#183; /dex/account</text>
+  <!-- whoami -->
+  <rect x="604" y="286" width="240" height="100" rx="8" fill="#ffffff" stroke="#8b5cf6" stroke-width="1.5" stroke-dasharray="5 4"/>
+  <text x="724" y="312" font-size="15" font-weight="600" fill="#0f172a" text-anchor="middle">whoami</text>
+  <text x="724" y="332" font-size="11" fill="#94a3b8" text-anchor="middle">optional test harness</text>
+  <text x="724" y="352" font-size="11" fill="#94a3b8" text-anchor="middle">verifies auth chain, then</text>
+  <text x="724" y="370" font-size="11" fill="#94a3b8" text-anchor="middle">delete after bring-up</text>
+
+  <!-- APP LAYER -->
+  <rect x="40" y="432" width="820" height="96" rx="12" fill="#ecfdf5" stroke="#6ee7b7" stroke-width="1.5"/>
+  <text x="56" y="454" font-size="12" font-weight="700" letter-spacing="1.5" fill="#047857">APPLICATION</text>
+  <rect x="270" y="466" width="360" height="52" rx="8" fill="#ffffff" stroke="#10b981" stroke-width="1.5"/>
+  <text x="450" y="488" font-size="15" font-weight="600" fill="#0f172a" text-anchor="middle">I-SPI &#183; R Shiny app</text>
+  <text x="450" y="506" font-size="10.5" fill="#64748b" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">:3838 &#183; in-process fitting: stanassay/Stan + JAGS</text>
+
+  <!-- DATA LAYER -->
+  <rect x="40" y="552" width="820" height="96" rx="12" fill="#fffbeb" stroke="#fcd34d" stroke-width="1.5"/>
+  <text x="56" y="574" font-size="12" font-weight="700" letter-spacing="1.5" fill="#b45309">DATA</text>
+  <rect x="270" y="586" width="360" height="52" rx="8" fill="#ffffff" stroke="#f59e0b" stroke-width="1.5"/>
+  <text x="450" y="608" font-size="15" font-weight="600" fill="#0f172a" text-anchor="middle">PostgreSQL</text>
+  <text x="450" y="626" font-size="10.5" fill="#64748b" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">:5432 &#183; TLS, hardened &#183; db immunoplex / madi_results</text>
+
+  <!-- BATCH LAYER (optional) -->
+  <rect x="40" y="678" width="820" height="140" rx="12" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="6 4"/>
+  <text x="56" y="700" font-size="11" font-weight="700" letter-spacing="1" fill="#475569">batch-calculator.yml &#8212; OPTIONAL, NOT INVOKED BY THIS BUILD</text>
+  <!-- api -->
+  <rect x="56" y="716" width="240" height="84" rx="8" fill="#ffffff" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="5 4"/>
+  <text x="176" y="742" font-size="13" font-weight="600" fill="#334155" text-anchor="middle">batch-calculator-api</text>
+  <text x="176" y="762" font-size="11.5" fill="#64748b" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">:8000</text>
+  <text x="176" y="781" font-size="11" fill="#94a3b8" text-anchor="middle">external fitting API</text>
+  <!-- redis -->
+  <rect x="330" y="716" width="240" height="84" rx="8" fill="#ffffff" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="5 4"/>
+  <text x="450" y="742" font-size="13" font-weight="600" fill="#334155" text-anchor="middle">batch-calculator-redis</text>
+  <text x="450" y="762" font-size="11.5" fill="#64748b" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">:6379</text>
+  <text x="450" y="781" font-size="11" fill="#94a3b8" text-anchor="middle">dedicated job queue</text>
+  <!-- worker -->
+  <rect x="604" y="716" width="240" height="84" rx="8" fill="#ffffff" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="5 4"/>
+  <text x="724" y="742" font-size="13" font-weight="600" fill="#334155" text-anchor="middle">batch-calculator-worker</text>
+  <text x="724" y="762" font-size="11" fill="#94a3b8" text-anchor="middle">writes PG</text>
+  <text x="724" y="781" font-size="11" fill="#94a3b8" text-anchor="middle">external fitting worker</text>
+
+  <!-- ARROWS -->
+  <!-- User -> Traefik -->
+  <line x1="450" y1="124" x2="450" y2="164" stroke="#475569" stroke-width="2" marker-end="url(#ah)"/>
+
+  <!-- Traefik -> auth fan -->
+  <line x1="450" y1="210" x2="176" y2="284" stroke="#475569" stroke-width="2" marker-end="url(#ah)"/>
+  <line x1="450" y1="210" x2="450" y2="284" stroke="#475569" stroke-width="2" marker-end="url(#ah)"/>
+  <line x1="450" y1="210" x2="724" y2="284" stroke="#475569" stroke-width="2" marker-end="url(#ah)"/>
+
+  <!-- Traefik -> I-SPI (right channel), route /i-spi -->
+  <polyline points="600,188 878,188 878,492 632,492" fill="none" stroke="#475569" stroke-width="2" marker-end="url(#ah)"/>
+  <text transform="rotate(-90 872 360)" x="872" y="360" font-size="10.5" fill="#475569" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">route /i-spi</text>
+
+  <!-- I-SPI -> Dex (left channel), OIDC -->
+  <polyline points="270,492 22,492 22,336 54,336" fill="none" stroke="#475569" stroke-width="2" marker-end="url(#ah)"/>
+  <text transform="rotate(-90 16 414)" x="16" y="414" font-size="10.5" fill="#475569" text-anchor="middle">OIDC token exchange</text>
+
+  <!-- whoami -> Dex (verify, under boxes) -->
+  <polyline points="724,388 724,398 176,398 176,388" fill="none" stroke="#475569" stroke-width="1.75" marker-end="url(#ah)"/>
+  <text x="450" y="395" font-size="10.5" fill="#475569" text-anchor="middle">whoami verifies SSO against Dex</text>
+
+  <!-- I-SPI -> PostgreSQL -->
+  <line x1="450" y1="518" x2="450" y2="584" stroke="#475569" stroke-width="2" marker-end="url(#ah)"/>
+  <text x="460" y="546" font-size="10.5" fill="#475569">fit + read/write results (madi_results)</text>
+
+  <!-- batch worker -> PostgreSQL (optional) -->
+  <polyline points="724,716 724,664 560,664 560,640" fill="none" stroke="#94a3b8" stroke-width="1.75" stroke-dasharray="5 4" marker-end="url(#ahd)"/>
+  <text x="598" y="660" font-size="10.5" fill="#64748b">same DB, if deployed</text>
+
+  <!-- api -> redis, worker -> redis (optional, job queue) -->
+  <line x1="296" y1="758" x2="328" y2="758" stroke="#94a3b8" stroke-width="1.75" stroke-dasharray="5 4" marker-end="url(#ahd)"/>
+  <line x1="604" y1="758" x2="572" y2="758" stroke="#94a3b8" stroke-width="1.75" stroke-dasharray="5 4" marker-end="url(#ahd)"/>
+</svg>
