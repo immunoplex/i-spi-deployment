@@ -1,8 +1,8 @@
 # I-SPI deployment
 
 Manifests, schema and guides for running **I-SPI**, an R Shiny
-application for bead-based immunoassay data, with its curve-fitting tier
-**i-spi-compute**.
+application for immunoassay data (bead arrays, ELISA and flow cytometry;
+MSD support is planned), with its curve-fitting tier **i-spi-compute**.
 
 **Documentation: <https://immunoplex.github.io/i-spi-deployment/>**
 

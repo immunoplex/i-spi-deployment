@@ -1,10 +1,11 @@
 # Overview
 
 This site describes how to run **I-SPI** with everything it needs. I-SPI
-is an R Shiny application for bead-based immunoassay (Luminex) data. It
-does not fit standard curves itself: it sends each fit to
-**i-spi-compute**, which runs the curveR packages and writes the results
-to the database. I-SPI then reads them back.
+is an R Shiny application for immunoassay data: bead arrays, ELISA and
+flow cytometry, with support for MSD planned. It does not fit standard
+curves itself: it sends each fit to **i-spi-compute**, which runs the
+curveR packages and writes the results to the database. I-SPI then reads
+them back.
 
 **I-SPI submits a job → API → Redis queue → worker (curveR) → `calib_*`
 tables → I-SPI reads.**
