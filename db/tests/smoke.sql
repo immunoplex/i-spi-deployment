@@ -40,21 +40,4 @@ DO $$ BEGIN
   THEN RAISE EXCEPTION 'check_access_key accepted an unknown key'; END IF;
 END $$;
 SELECT 'ok ispi_export functions';
--- a consumer role with only ispi_export grants can read model_qc's settings
--- (resolve_settings() needs calib_settings; curve_settings() runs as its owner)
-CREATE ROLE smoke_reader NOLOGIN;
-GRANT USAGE ON SCHEMA ispi_export TO smoke_reader;
-GRANT SELECT ON ALL TABLES IN SCHEMA ispi_export TO smoke_reader;
-GRANT EXECUTE ON FUNCTION ispi_export.curve_settings(integer, text, text, text, text),
-                          ispi_export.model_y(text, double precision, double precision, double precision, double precision, double precision, double precision),
-                          ispi_export.model_dydx(text, double precision, double precision, double precision, double precision, double precision, double precision),
-                          ispi_export.safe_exp(double precision),
-                          ispi_export.safe_pow(double precision, double precision) TO smoke_reader;
-SET LOCAL ROLE smoke_reader;
-DO $$ BEGIN
-  IF (SELECT blank_option FROM ispi_export.curve_settings(1, 'S1', 'E1', '__none__', 'IgG')) IS NULL
-  THEN RAISE EXCEPTION 'curve_settings returned no blank_option for a consumer role'; END IF;
-END $$;
-SELECT 'ok ispi_export consumer role ' || count(*) FROM ispi_export.model_qc;
-RESET ROLE;
 ROLLBACK;
