@@ -134,6 +134,15 @@ schema 0.7.0)</td>
 system-wide defaults</td>
 <td>generated from production (catalog and system tier only)</td>
 </tr>
+<tr class="even">
+<td><code>40_ispi_export.sql</code></td>
+<td>the <code>ispi_export</code> schema: read-only views other systems
+use to read I-SPI results (<code>model_qc</code>,
+<code>standard_curve</code>, <code>sample_qc</code>, the raw tables) and
+<code>check_access_key()</code>
+</td>
+<td>written here</td>
+</tr>
 </tbody>
 </table>
 <p><a href="https://github.com/immunoplex/i-spi-deployment/blob/main/db/MANIFEST.md" class="external-link"><code>MANIFEST.md</code></a>
@@ -152,7 +161,10 @@ files from <code>/docker-entrypoint-initdb.d/</code> in name order when
 it creates a new data directory, so mounting this folder there works
 too.</p>
 <p><code>30_seed_settings.sql</code> can be re-run; it leaves existing
-rows alone.</p>
+rows alone. <code>40_ispi_export.sql</code> can be re-run, and can be
+loaded on its own into an existing database: it only creates the
+<code>ispi_export</code> schema, its views and functions, and grants
+them to the role <code>ispi_export_reader</code> when that exists.</p>
 </div>
 <div class="section level2">
 <h2 id="testing">Testing<a class="anchor" aria-label="anchor" href="#testing"></a>
@@ -196,7 +208,8 @@ in that script and to MANIFEST.md.</li>
 <p>What the files in <code>db/</code> create, who uses each object, and
 what was left out. Checked against I-SPI 1.1.0 and i-spi-compute 1.1.0
 (2026-11-19); I-SPI 1.1.1 and i-spi-compute 1.1.1 change no database
-objects.</p>
+objects. <code>40_ispi_export.sql</code> added 2026-11-23 (I-SPI
+1.3.0).</p>
 <ul>
 <li>
 <strong>A</strong> is the I-SPI app (<code>immunoplex/i-spi</code>,
@@ -394,6 +407,79 @@ group, label, type, control and description.</li>
 <code>project_id = -1</code>:</strong> the 30 system-wide defaults.</li>
 </ul>
 <p>No project, study or user data.</p>
+</div>
+<div class="section level4">
+<h4 id="ispi_export-40_ispi_export-sql">
+<code>ispi_export</code> (40_ispi_export.sql)<a class="anchor" aria-label="anchor" href="#ispi_export-40_ispi_export-sql"></a>
+</h4>
+<p>The read-only interface for systems outside I-SPI (first: the MADI
+Data Portal’s I-SPI migration). Consumers get access to this schema
+only.</p>
+<table class="table">
+<colgroup>
+<col width="33%">
+<col width="33%">
+<col width="33%">
+</colgroup>
+<thead><tr class="header">
+<th>Object</th>
+<th>Kind</th>
+<th>Used by</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td><code>model_qc</code></td>
+<td>view</td>
+<td>best fit per curve and method (frequentist and Bayesian):
+parameters, LOQ/LOD/MDC/RDL, inflection, fit statistics. Columns 1-39
+keep the names of the retired <code>get_model_qc_data()</code>
+</td>
+</tr>
+<tr class="even">
+<td><code>standard_curve</code></td>
+<td>view</td>
+<td>standard-curve parameters per curve and method; replaces reads of
+the retired <code>best_glance_all</code>
+</td>
+</tr>
+<tr class="odd">
+<td><code>sample_qc</code></td>
+<td>view</td>
+<td>sample estimates per well, curve and method, with the raw well data;
+columns 1-20 keep the names of the retired
+<code>get_sample_qc_data()</code>. Gate classes from
+<code>censor_class</code>, else the curve limits, else
+<code>pcov_gate_class</code> (<code>gate_class_basis</code> says
+which)</td>
+</tr>
+<tr class="even">
+<td>
+<code>xmap_header</code>, <code>xmap_sample</code>,
+<code>xmap_control</code>, <code>xmap_buffer</code>,
+<code>xmap_standard</code>, <code>xmap_planned_visit</code> (+
+<code>xmap_subjects</code>, <code>xmap_sample_timing</code> where those
+legacy tables exist)</td>
+<td>views</td>
+<td>the raw tables, unchanged</td>
+</tr>
+<tr class="odd">
+<td><code>check_access_key(project_id, key)</code></td>
+<td>function (owner’s rights)</td>
+<td>validates a project access key without exposing
+<code>project_access_keys</code>
+</td>
+</tr>
+<tr class="even">
+<td>
+<code>model_y()</code>, <code>model_dydx()</code>,
+<code>safe_exp()</code>, <code>safe_pow()</code>
+</td>
+<td>functions</td>
+<td>the curve models used by <code>model_qc</code>; match curveRcore to
+1e-14</td>
+</tr>
+</tbody>
+</table>
 </div>
 </div>
 <div class="section level3">
