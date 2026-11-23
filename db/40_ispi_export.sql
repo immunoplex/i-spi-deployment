@@ -96,25 +96,6 @@ RETURNS double precision LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
 $$;
 COMMENT ON FUNCTION ispi_export.model_dydx IS 'Slope dy/dx of a fitted curveRcore model at x (log10 concentration).';
 
--- ── the fit settings model_qc reports, without access to the settings tables ─
--- resolve_settings() runs with its caller's rights and reads calib_settings, so
--- a view that calls it directly fails for consumer roles. This wrapper runs with
--- its owner's rights and returns only the four settings model_qc shows.
-CREATE OR REPLACE FUNCTION ispi_export.curve_settings(p_project integer, p_study text, p_experiment text,
-                                                      p_feature text, p_antigen text)
-RETURNS TABLE (is_log_response boolean, is_log_independent boolean, blank_option text, apply_prozone boolean)
-LANGUAGE sql STABLE SECURITY DEFINER
-SET search_path = pg_catalog, pg_temp AS $$
-  SELECT max(rs.value_text) FILTER (WHERE rs.param_name = 'is_log_response')::boolean,
-         max(rs.value_text) FILTER (WHERE rs.param_name = 'is_log_independent')::boolean,
-         max(rs.value_text) FILTER (WHERE rs.param_name = 'blank_option'),
-         max(rs.value_text) FILTER (WHERE rs.param_name = 'apply_prozone')::boolean
-  FROM madi_results.resolve_settings(p_project, p_study::varchar, p_experiment::varchar,
-                                     p_feature::varchar, p_antigen::varchar) rs
-$$;
-COMMENT ON FUNCTION ispi_export.curve_settings IS 'Fit settings shown in model_qc (log response, log x, blank option, prozone) for one curve. Runs with its owner''s rights so consumers need no access to calib_settings.';
-REVOKE ALL ON FUNCTION ispi_export.curve_settings(integer, text, text, text, text) FROM PUBLIC;
-
 -- ── model_qc ─────────────────────────────────────────────────────────────────
 CREATE OR REPLACE VIEW ispi_export.model_qc AS
 WITH par AS (
@@ -149,8 +130,14 @@ WITH par AS (
     WHERE dd.curve_id = f.curve_id AND dd.method = f.method AND dd.model_name = f.model_name
     LIMIT 1) d ON true
   LEFT JOIN madi_results.calib_run r ON r.job_id = f.job_id
-  LEFT JOIN LATERAL ispi_export.curve_settings(cl.project_id, cl.study_accession, cl.experiment_accession,
-                                               coalesce(cl.feature, '__none__'), coalesce(cl.antigen, '__none__')) s ON true
+  LEFT JOIN LATERAL (
+    SELECT max(rs.value_text) FILTER (WHERE rs.param_name = 'is_log_response')::boolean    AS is_log_response,
+           max(rs.value_text) FILTER (WHERE rs.param_name = 'is_log_independent')::boolean AS is_log_independent,
+           max(rs.value_text) FILTER (WHERE rs.param_name = 'blank_option')                AS blank_option,
+           max(rs.value_text) FILTER (WHERE rs.param_name = 'apply_prozone')::boolean      AS apply_prozone
+    FROM madi_results.resolve_settings(cl.project_id, cl.study_accession, cl.experiment_accession,
+                                       coalesce(cl.feature, '__none__'), coalesce(cl.antigen, '__none__')) rs
+  ) s ON true
   WHERE f.is_best
 )
 SELECT
@@ -345,7 +332,6 @@ DO $$ BEGIN
     GRANT USAGE ON SCHEMA ispi_export TO ispi_export_reader;
     GRANT SELECT ON ALL TABLES IN SCHEMA ispi_export TO ispi_export_reader;
     GRANT EXECUTE ON FUNCTION ispi_export.check_access_key(integer, text),
-                              ispi_export.curve_settings(integer, text, text, text, text),
                               ispi_export.model_y(text, double precision, double precision, double precision, double precision, double precision, double precision),
                               ispi_export.model_dydx(text, double precision, double precision, double precision, double precision, double precision, double precision),
                               ispi_export.safe_exp(double precision),
