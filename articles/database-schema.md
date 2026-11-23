@@ -46,8 +46,9 @@ directory, so mounting this folder there works too.
 `30_seed_settings.sql` can be re-run; it leaves existing rows alone.
 `40_ispi_export.sql` can be re-run, and can be loaded on its own into an
 existing database: it only creates the `ispi_export` schema, its views
-and functions, and grants them to the role `ispi_export_reader` when
-that exists.
+and functions, multi-column planner statistics on `xmap_sample` and
+`curve_lookup` (so per-experiment queries get a fast plan), and grants
+them to the role `ispi_export_reader` when that exists.
 
 ## Testing
 
@@ -157,6 +158,7 @@ Portal’s I-SPI migration). Consumers get access to this schema only.
 | `xmap_header`, `xmap_sample`, `xmap_control`, `xmap_buffer`, `xmap_standard`, `xmap_planned_visit` (+ `xmap_subjects`, `xmap_sample_timing` where those legacy tables exist) | views | the raw tables, unchanged |
 | `check_access_key(project_id, key)` | function (owner’s rights) | validates a project access key without exposing `project_access_keys` |
 | `model_y()`, `model_dydx()`, `safe_exp()`, `safe_pow()` | functions | the curve models used by `model_qc`; match curveRcore to 1e-14 |
+| `madi_results.xmap_sample_experiment_stats`, `madi_results.curve_lookup_experiment_stats` | extended statistics (dependencies, ndistinct) on project, study, experiment | planner estimates for per-experiment reads of `sample_qc`; without them a large experiment takes 18-35 s instead of about 1 s |
 
 ### Left out
 

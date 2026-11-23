@@ -163,8 +163,11 @@ too.</p>
 <p><code>30_seed_settings.sql</code> can be re-run; it leaves existing
 rows alone. <code>40_ispi_export.sql</code> can be re-run, and can be
 loaded on its own into an existing database: it only creates the
-<code>ispi_export</code> schema, its views and functions, and grants
-them to the role <code>ispi_export_reader</code> when that exists.</p>
+<code>ispi_export</code> schema, its views and functions, multi-column
+planner statistics on <code>xmap_sample</code> and
+<code>curve_lookup</code> (so per-experiment queries get a fast plan),
+and grants them to the role <code>ispi_export_reader</code> when that
+exists.</p>
 </div>
 <div class="section level2">
 <h2 id="testing">Testing<a class="anchor" aria-label="anchor" href="#testing"></a>
@@ -477,6 +480,17 @@ legacy tables exist)</td>
 <td>functions</td>
 <td>the curve models used by <code>model_qc</code>; match curveRcore to
 1e-14</td>
+</tr>
+<tr class="odd">
+<td>
+<code>madi_results.xmap_sample_experiment_stats</code>,
+<code>madi_results.curve_lookup_experiment_stats</code>
+</td>
+<td>extended statistics (dependencies, ndistinct) on project, study,
+experiment</td>
+<td>planner estimates for per-experiment reads of
+<code>sample_qc</code>; without them a large experiment takes 18-35 s
+instead of about 1 s</td>
 </tr>
 </tbody>
 </table>
