@@ -225,7 +225,12 @@ COMMENT ON VIEW ispi_export.standard_curve IS 'Standard-curve parameters per cur
 -- them for fitting, then to the curve's sample estimate on sample id, patient,
 -- time period and dilution (calib_samples stores missing values as '__none__'
 -- and dilution as text, e.g. '1e+05', hence the conversions).
-CREATE OR REPLACE VIEW ispi_export.sample_qc AS
+-- Scale: calib_samples.predicted_concentration holds log10(concentration) on the
+-- curve's scale, despite its name (log10(final_concentration) = it + log10(dilution));
+-- newer rows repeat it in predicted_log10_concentration.
+-- Dropped first because a column was removed (nothing depends on this view).
+DROP VIEW IF EXISTS ispi_export.sample_qc;
+CREATE VIEW ispi_export.sample_qc AS
 SELECT
   -- 1-20: the columns of the retired get_sample_qc_data(), same meaning
   -- stable id for (well, curve, method): a well can belong to several curves
@@ -265,7 +270,7 @@ SELECT
   -- 21+: new
   cl.curve_id, cs.method, s.xmap_sample_id, s.sampleid, s.patientid, s.agroup, s.plateid,
   s.antigen, s.feature, cl.source, cl.wavelength,
-  cs.predicted_concentration AS raw_predicted_concentration, cs.predicted_log10_concentration,
+  lx.x AS predicted_log10_concentration,
   cs.pcov, cs.pcov_gate_class, cs.censor_class, cs.censor_type,
   cs.conc_q_lo, cs.conc_q_med, cs.conc_q_hi, cs.p_below_lloq, cs.p_above_uloq,
   CASE WHEN cs.censor_class IS NOT NULL THEN 'censor_class'
@@ -284,11 +289,11 @@ JOIN madi_results.calib_samples cs
  AND cs.sampleid = coalesce(s.sampleid, '__none__') AND cs.patientid = coalesce(s.patientid, '__none__')
  AND cs.timeperiod = coalesce(s.timeperiod, '__none__')
  AND cs.dilution ~ '^[-+0-9.eE]+$' AND cs.dilution::numeric = s.dilution
--- the sample's estimate on the log10 scale, for the limit comparison
--- (predicted_* is on the curve's scale; final_concentration is dilution-adjusted
--- and must not be compared with the curve limits)
+-- the sample's estimate as log10 concentration on the curve's scale, for the
+-- limit comparison (final_concentration is dilution-adjusted and must not be
+-- compared with the curve limits)
 CROSS JOIN LATERAL (SELECT coalesce(cs.predicted_log10_concentration,
-                                   CASE WHEN cs.predicted_concentration > 0 THEN log(cs.predicted_concentration) END)::double precision AS x) lx
+                                   cs.predicted_concentration)::double precision AS x) lx
 -- the limits of the best model this sample was estimated with
 LEFT JOIN LATERAL (
   SELECT dd.lloq_log10, dd.uloq_log10, dd.lower_lod_log10_conc AS llod, dd.upper_lod_log10_conc AS ulod
