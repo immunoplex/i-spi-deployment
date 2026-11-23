@@ -26,4 +26,18 @@ DO $$ BEGIN IF (SELECT count(*) FROM madi_results.resolve_settings(1, 'S1', 'E1'
 SELECT 'ok resolve_settings ' || count(*) FROM madi_results.resolve_settings(1, 'S1', 'E1', '__none__', 'IgG');
 SELECT 'ok resolve_settings_batch ' || count(*) FROM madi_results.resolve_settings_batch(ARRAY(SELECT curve_id FROM madi_results.curve_lookup));
 SELECT 'ok schema_version ' || string_agg(component || ' ' || version, ', ') FROM madi_results.schema_version;
+-- ispi_export: every view runs, the curve model is right at its inflection
+-- (logistic4: y(c) = (a + d)/2, slope (d - a)/(4b)), and an unknown key fails
+SELECT 'ok ispi_export views ' || (SELECT count(*) FROM ispi_export.model_qc)
+       + (SELECT count(*) FROM ispi_export.standard_curve) + (SELECT count(*) FROM ispi_export.sample_qc)
+       + (SELECT count(*) FROM ispi_export.xmap_sample);
+DO $$ BEGIN
+  IF abs(ispi_export.model_y('logistic4', 1.5, 1, 0.8, 1.5, 4, NULL) - 2.5) > 1e-12
+     OR abs(ispi_export.model_dydx('logistic4', 1.5, 1, 0.8, 1.5, 4, NULL) - 3.0 / 3.2) > 1e-12
+     OR ispi_export.model_y('gompertz4', -500, 1, 50, 1.5, 4, NULL) IS DISTINCT FROM 1
+  THEN RAISE EXCEPTION 'ispi_export curve functions are wrong'; END IF;
+  IF ispi_export.check_access_key(-1, '00000000-0000-0000-0000-000000000000')
+  THEN RAISE EXCEPTION 'check_access_key accepted an unknown key'; END IF;
+END $$;
+SELECT 'ok ispi_export functions';
 ROLLBACK;

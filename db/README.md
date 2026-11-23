@@ -11,6 +11,7 @@ settings. No project or assay data.
 | `15_fresh_install.sql` | adjustments a new database needs on top of `10_` | written here |
 | `20_calib_schema.sql` | the `calib_*` results tables, `control_reference`, `schema_version` (calib schema 0.7.0) | verbatim copy of curveRcore `R/calib_schema.sql` at tag `v0.7.0` |
 | `30_seed_settings.sql` | the settings catalog (`calib_settings_meta`) and the system-wide defaults | generated from production (catalog and system tier only) |
+| `40_ispi_export.sql` | the `ispi_export` schema: read-only views other systems use to read I-SPI results (`model_qc`, `standard_curve`, `sample_qc`, the raw tables) and `check_access_key()` | written here |
 
 [`MANIFEST.md`](MANIFEST.md) lists every object, who uses it, and what was left
 out on purpose.
@@ -36,6 +37,9 @@ The official `postgres` image also runs `*.sql` files from
 directory, so mounting this folder there works too.
 
 `30_seed_settings.sql` can be re-run; it leaves existing rows alone.
+`40_ispi_export.sql` can be re-run, and can be loaded on its own into an
+existing database: it only creates the `ispi_export` schema, its views and
+functions, and grants them to the role `ispi_export_reader` when that exists.
 
 ## Testing
 

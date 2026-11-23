@@ -1,7 +1,7 @@
 # Schema manifest
 
 What the files in `db/` create, who uses each object, and what was left out.
-Checked against I-SPI 1.1.0 and i-spi-compute 1.1.0 (2026-11-19); I-SPI 1.1.1 and i-spi-compute 1.1.1 change no database objects.
+Checked against I-SPI 1.1.0 and i-spi-compute 1.1.0 (2026-11-19); I-SPI 1.1.1 and i-spi-compute 1.1.1 change no database objects. `40_ispi_export.sql` added 2026-11-23 (I-SPI 1.3.0).
 
 - **A** is the I-SPI app (`immunoplex/i-spi`, `src/`).
 - **W** is the i-spi-compute worker. The compute API itself does not touch the
@@ -57,6 +57,20 @@ not used at run time; they come with the curveRcore contract.
 - **`calib_settings` with `project_id = -1`:** the 30 system-wide defaults.
 
 No project, study or user data.
+
+### `ispi_export` (40_ispi_export.sql)
+
+The read-only interface for systems outside I-SPI (first: the MADI Data
+Portal's I-SPI migration). Consumers get access to this schema only.
+
+| Object | Kind | Used by |
+|---|---|---|
+| `model_qc` | view | best fit per curve and method (frequentist and Bayesian): parameters, LOQ/LOD/MDC/RDL, inflection, fit statistics. Columns 1-39 keep the names of the retired `get_model_qc_data()` |
+| `standard_curve` | view | standard-curve parameters per curve and method; replaces reads of the retired `best_glance_all` |
+| `sample_qc` | view | sample estimates per well, curve and method, with the raw well data; columns 1-20 keep the names of the retired `get_sample_qc_data()`. Gate classes from `censor_class`, else the curve limits, else `pcov_gate_class` (`gate_class_basis` says which) |
+| `xmap_header`, `xmap_sample`, `xmap_control`, `xmap_buffer`, `xmap_standard`, `xmap_planned_visit` (+ `xmap_subjects`, `xmap_sample_timing` where those legacy tables exist) | views | the raw tables, unchanged |
+| `check_access_key(project_id, key)` | function (owner's rights) | validates a project access key without exposing `project_access_keys` |
+| `model_y()`, `model_dydx()`, `safe_exp()`, `safe_pow()` | functions | the curve models used by `model_qc`; match curveRcore to 1e-14 |
 
 ## Left out
 
