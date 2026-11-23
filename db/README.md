@@ -39,7 +39,9 @@ directory, so mounting this folder there works too.
 `30_seed_settings.sql` can be re-run; it leaves existing rows alone.
 `40_ispi_export.sql` can be re-run, and can be loaded on its own into an
 existing database: it only creates the `ispi_export` schema, its views and
-functions, and grants them to the role `ispi_export_reader` when that exists.
+functions, multi-column planner statistics on `xmap_sample` and `curve_lookup`
+(so per-experiment queries get a fast plan), and grants them to the role
+`ispi_export_reader` when that exists.
 
 ## Testing
 

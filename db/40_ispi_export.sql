@@ -33,7 +33,8 @@
 -- k = n_params; mse = sigma_resid^2; nobs = standards included in the fit.
 --
 -- Loaded after 00-30 on a new database; on an existing database run this file
--- alone (it only creates the schema, views and functions, and is idempotent).
+-- alone (it only creates the schema, views and functions, plus planner
+-- statistics on two madi_results tables, and is idempotent).
 -- Grants are given to ispi_export_reader when that role exists.
 -- =============================================================================
 
@@ -311,6 +312,19 @@ SET search_path = pg_catalog, pg_temp AS $$
 $$;
 COMMENT ON FUNCTION ispi_export.check_access_key IS 'True when the access key belongs to the project. Runs with its owner''s rights so callers need no access to the key table.';
 REVOKE ALL ON FUNCTION ispi_export.check_access_key(integer, text) FROM PUBLIC;
+
+-- ── planner statistics for the per-experiment filters ───────────────────────
+-- Consumers filter by project, study and experiment. Those columns depend on
+-- each other (an experiment belongs to one study and project), and without
+-- these statistics the planner multiplies their selectivities, expects a few
+-- rows, and matches wells to curves with a nested loop: 18-35 s instead of
+-- about 1 s for a 94,000-well experiment (production, 2026-11-23).
+CREATE STATISTICS IF NOT EXISTS madi_results.xmap_sample_experiment_stats (dependencies, ndistinct)
+  ON project_id, study_accession, experiment_accession FROM madi_results.xmap_sample;
+CREATE STATISTICS IF NOT EXISTS madi_results.curve_lookup_experiment_stats (dependencies, ndistinct)
+  ON project_id, study_accession, experiment_accession FROM madi_results.curve_lookup;
+ANALYZE madi_results.xmap_sample;
+ANALYZE madi_results.curve_lookup;
 
 -- ── grants for the consumer role, when it exists ─────────────────────────────
 DO $$ BEGIN
