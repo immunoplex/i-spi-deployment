@@ -38,24 +38,30 @@ pod that reads it.
 
 The manifests set exactly the variables the images read.
 
-**I-SPI 1.1.1** (`i-spi.yml`)
+**I-SPI 1.3.3** (`i-spi.yml`)
 
 | Variable | Meaning |
 |---|---|
-| `db`, `db_host`, `db_port`, `db_userid_x`, `db_pwd_x` | the database. I-SPI always connects with TLS |
+| `DB_NAME`, `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD` | the database, the same names the worker uses. I-SPI always connects with TLS |
 | `DEX_ISSUER` | the public sign-in address, `https://<host>/dex` |
 | `DEX_INTERNAL_URL` | Dex inside the cluster, `http://dex:5556/dex`, for discovery and token exchange |
 | `DEX_CLIENT_ID`, `DEX_CLIENT_SECRET` | I-SPI's client in Dex |
 | `APP_REDIRECT_URI` | `https://<host>/i-spi/`; must be one of the client's `redirectURIs` in `dex.yml` |
 | `ISPI_COMPUTE_URL`, `ISPI_COMPUTE_API_KEY` | the default compute tier (`http://i-spi-compute-api:8000`) and its key |
 | `ISPI_COMPUTE_URL__<NAME>`, `ISPI_COMPUTE_API_KEY__<NAME>` | optional further tiers; see [Compute tiers](compute-tiers.html) |
+| `ISPI_ENABLE_ADDITIVE_WEIGHTS` | optional. `true` (or `1`, `yes`) offers the additive precision-weights model next to the multiplicative one; unset or anything else hides it |
 | `SHINY_LOG_LEVEL`, `SHINY_LOG_STDERR` | Shiny Server logging. `INFO` normally, `DEBUG` to follow a sign-in |
 
 For development, I-SPI also reads `LOCAL_DEV` and `LOCAL_DEV_EMAIL`: with
 `LOCAL_DEV=1` it skips sign-in and acts as `LOCAL_DEV_EMAIL`. Never set
 `LOCAL_DEV` in a deployment.
 
-**i-spi-compute 1.1.1 API** (`i-spi-compute.yml`)
+I-SPI 1.3.3 still reads the names used up to 1.3.2 (`db`, `db_host`, `db_port`,
+`db_userid_x`, `db_pwd_x`) when the new ones are unset, and logs
+`[db] DB_HOST is unset; using the old variable db_host` when it does. A later
+release drops them.
+
+**i-spi-compute 1.2.0 API** (`i-spi-compute.yml`)
 
 | Variable | Meaning |
 |---|---|
@@ -63,7 +69,7 @@ For development, I-SPI also reads `LOCAL_DEV` and `LOCAL_DEV_EMAIL`: with
 | `API_KEY` | every request except `/health` must send it as the `X-API-Key` header |
 | `ROOT_PATH` | the public path prefix, used in the API's own documentation links |
 
-**i-spi-compute 1.1.1 worker** (`i-spi-compute.yml`)
+**i-spi-compute 1.2.0 worker** (`i-spi-compute.yml`)
 
 | Variable | Meaning |
 |---|---|

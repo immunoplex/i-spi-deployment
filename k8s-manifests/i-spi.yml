@@ -1,5 +1,5 @@
 # =============================================================================
-# i-spi.yml -- I-SPI 1.1.1, the analysis front end (R Shiny)
+# i-spi.yml -- I-SPI 1.3.3, the analysis front end (R Shiny)
 #
 # Serves https://IMMUNOPLEX_HOSTNAME/i-spi/. Users sign in through Dex
 # (dex.yml). I-SPI reads and writes the `immunoplex` database (postgresql.yml,
@@ -11,14 +11,17 @@
 # The database password comes from the `postgresql` Secret (postgresql.yml),
 # the compute API key from the `i-spi-compute` Secret (i-spi-compute.yml).
 #
-# Environment: exactly the variables I-SPI 1.1.1 reads.
-#   db, db_host, db_port, db_userid_x, db_pwd_x   database (TLS is required)
+# Environment: exactly the variables I-SPI 1.3.3 reads.
+#   DB_NAME, DB_HOST, DB_PORT, DB_USER,
+#   DB_PASSWORD                                   database (TLS is required)
 #   DEX_ISSUER, DEX_INTERNAL_URL, DEX_CLIENT_ID,
 #   DEX_CLIENT_SECRET, APP_REDIRECT_URI           sign-in (OIDC)
 #   ISPI_COMPUTE_URL, ISPI_COMPUTE_API_KEY        default compute tier
 #   ISPI_COMPUTE_URL__<NAME>, ..._API_KEY__<NAME> optional further compute tiers,
 #                                                 chosen per project/study by the
 #                                                 `compute_cluster` setting
+#   ISPI_ENABLE_ADDITIVE_WEIGHTS                  optional, "true" shows the additive
+#                                                 precision-weights model (off when unset)
 #   SHINY_LOG_LEVEL, SHINY_LOG_STDERR             Shiny Server logging
 # =============================================================================
 
@@ -97,7 +100,7 @@ spec:
         app: i-spi
     spec:
       containers:
-        - image: ghcr.io/immunoplex/i-spi:1.1.1
+        - image: ghcr.io/immunoplex/i-spi:1.3.3
           imagePullPolicy: IfNotPresent
           name: i-spi
           # Sized for interactive sessions; the fitting load is on the
@@ -111,15 +114,15 @@ spec:
               memory: "3Gi"
           env:
             # ── Database ──────────────────────────────────────────────────────
-            - name: db
+            - name: DB_NAME
               value: "immunoplex"
-            - name: db_host
+            - name: DB_HOST
               value: "postgresql"
-            - name: db_port
+            - name: DB_PORT
               value: "5432"
-            - name: db_userid_x
+            - name: DB_USER
               value: postgres
-            - name: db_pwd_x
+            - name: DB_PASSWORD
               valueFrom:
                 secretKeyRef:
                   name: postgresql

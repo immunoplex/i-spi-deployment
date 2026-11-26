@@ -54,7 +54,7 @@ wait_for() {  # wait_for <description> <seconds> <command...>
   log "$what: not ready after ${secs}s"; return 1
 }
 wait_for "postgres" 180 compose exec -T postgres pg_isready -U postgres -d immunoplex
-wait_for "schema"   120 psql_e2e -tAc "SELECT 1 FROM madi_results.schema_version WHERE version = '0.7.0'"
+wait_for "schema"   120 psql_e2e -tAc "SELECT 1 FROM madi_results.schema_version WHERE version = '0.7.1'"
 wait_for "compute api" 120 curl -fsS http://localhost:8000/health
 wait_for "i-spi" 180 curl -fsS -o /dev/null http://localhost:3838/
 

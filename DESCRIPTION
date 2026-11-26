@@ -1,6 +1,6 @@
 Package: ispideployment
 Title: Deployment Guides for I-SPI and i-spi-compute
-Version: 2.0.0
+Version: 2.1.0
 Authors@R: person("Michael S.", "Zens", role = c("aut", "cre"))
 Description: Documentation only; this is not an installable R package. The file
     exists so that 'pkgdown' can build the deployment guides for I-SPI (an R

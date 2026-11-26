@@ -1,5 +1,5 @@
 # =============================================================================
-# i-spi-compute.yml -- i-spi-compute 1.1.1, the REQUIRED fitting tier
+# i-spi-compute.yml -- i-spi-compute 1.2.0, the REQUIRED fitting tier
 #
 #   I-SPI --POST /jobs--> API --> Redis queue --> worker (curveR) --> calib_*
 #                                                                  <-- I-SPI reads
@@ -9,9 +9,9 @@
 # - Worker: fits standard curves with curveRfreq (frequentist) and curveRbayes
 #   (Bayesian, CmdStan), estimates samples, controls and standards, computes
 #   precision weights (curveRweights), and writes everything to the calib_*
-#   tables. Image contents: curveRcore 0.7.0, curveRfreq 0.5.2,
-#   curveRbayes 0.5.2, curveRweights 0.3.0, CmdStan 2.40.0.
-# The database must hold calib schema 0.7.0 (load db/ into a new database).
+#   tables. Image contents: curveRcore 0.7.1, curveRfreq 0.5.2,
+#   curveRbayes 0.5.2, curveRweights 0.3.1, CmdStan 2.40.0.
+# The database must hold calib schema 0.7.1 (load db/ into a new database).
 #
 # Placeholders, replaced by the `sed` step (docs: articles/install-cluster.html#configure):
 #   IMMUNOPLEX_API_KEY, IMMUNOPLEX_REDIS_AUTH (both `openssl rand -hex 32`),
@@ -93,7 +93,7 @@ spec:
     spec:
       containers:
         - name: i-spi-compute-api
-          image: ghcr.io/immunoplex/i-spi-compute-api:1.1.1
+          image: ghcr.io/immunoplex/i-spi-compute-api:1.2.0
           imagePullPolicy: IfNotPresent
           env:
             - { name: REDIS_HOST, value: i-spi-compute-redis }
@@ -145,7 +145,7 @@ spec:
         kubernetes.io/arch: amd64   # Stan models are compiled for amd64
       containers:
         - name: i-spi-compute-worker
-          image: ghcr.io/immunoplex/i-spi-compute-worker:1.1.1
+          image: ghcr.io/immunoplex/i-spi-compute-worker:1.2.0
           imagePullPolicy: IfNotPresent
           env:
             - { name: REDIS_HOST, value: i-spi-compute-redis }

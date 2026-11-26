@@ -13,7 +13,7 @@
 #
 # The schema in ../db is loaded the first time PostgreSQL starts with an empty
 # volume. `docker compose down -v` deletes the data and starts over.
-# Same images as the Kubernetes manifests: I-SPI 1.1.1, i-spi-compute 1.1.1.
+# Same images as the Kubernetes manifests: I-SPI 1.3.3, i-spi-compute 1.2.0.
 # =============================================================================
 
 name: i-spi-local
@@ -68,7 +68,7 @@ services:
       REDIS_AUTH: ${REDIS_AUTH}
 
   i-spi-compute-api:
-    image: ghcr.io/immunoplex/i-spi-compute-api:1.1.1
+    image: ghcr.io/immunoplex/i-spi-compute-api:1.2.0
     environment:
       REDIS_HOST: i-spi-compute-redis
       REDIS_PORT: "6379"
@@ -82,7 +82,7 @@ services:
         condition: service_healthy
 
   i-spi-compute-worker:
-    image: ghcr.io/immunoplex/i-spi-compute-worker:1.1.1
+    image: ghcr.io/immunoplex/i-spi-compute-worker:1.2.0
     environment:
       REDIS_HOST: i-spi-compute-redis
       REDIS_PORT: "6379"
@@ -105,13 +105,13 @@ services:
         condition: service_healthy
 
   i-spi:
-    image: ghcr.io/immunoplex/i-spi:1.1.1
+    image: ghcr.io/immunoplex/i-spi:1.3.3
     environment:
-      db: immunoplex
-      db_host: postgres
-      db_port: "5432"
-      db_userid_x: postgres
-      db_pwd_x: ${POSTGRES_PASSWORD}
+      DB_NAME: immunoplex
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_USER: postgres
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
       DEX_ISSUER: http://localhost:5556/dex
       DEX_INTERNAL_URL: http://dex:5556/dex
       DEX_CLIENT_ID: i-spi-local
