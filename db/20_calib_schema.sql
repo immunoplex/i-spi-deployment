@@ -1,6 +1,6 @@
 -- =============================================================================
--- 20_calib_schema.sql -- calib_* results schema (calib schema 0.7.0).
--- VERBATIM copy of curveRcore R/calib_schema.sql at tag v0.7.0 (d959973);
+-- 20_calib_schema.sql -- calib_* results schema (calib schema 0.7.1).
+-- VERBATIM copy of curveRcore R/calib_schema.sql at tag v0.7.1 (955d753);
 -- do not edit here. Update by copying the file from a newer curveRcore tag.
 -- =============================================================================
 
@@ -393,7 +393,14 @@ ALTER TABLE madi_results.calib_weights_fit
     ADD COLUMN IF NOT EXISTS reliability_hi double precision,
     ADD COLUMN IF NOT EXISTS fix_beta1 boolean,
     ADD COLUMN IF NOT EXISTS n_censored integer,
-    ADD COLUMN IF NOT EXISTS identifiability text;
+    ADD COLUMN IF NOT EXISTS identifiability text,
+    ADD COLUMN IF NOT EXISTS fit_options text,
+    ADD COLUMN IF NOT EXISTS rhat_max double precision,
+    ADD COLUMN IF NOT EXISTS n_divergent integer,
+    ADD COLUMN IF NOT EXISTS ess_min double precision,
+    ADD COLUMN IF NOT EXISTS ident_sd_ratio double precision,
+    ADD COLUMN IF NOT EXISTS resid_sd double precision,
+    ADD COLUMN IF NOT EXISTS resid_sd_ratio double precision;
 
 
 -- ============================================================================
@@ -685,7 +692,7 @@ ALTER SEQUENCE madi_results.calib_settings_calib_settings_id_seq
 
 
 -- ============================================================================
--- Schema version (0.7.0). One row per component and version applied; the
+-- Schema version (0.7.1). One row per component and version applied; the
 -- latest row per component is the version in force. Shown by I-SPI and carried
 -- in the release manifest. Applying this file records its own version; it must
 -- equal curveRcore::calib_schema_version() (a package test checks this).
@@ -700,6 +707,6 @@ CREATE TABLE IF NOT EXISTS madi_results.schema_version (
 );
 
 INSERT INTO madi_results.schema_version (component, version, description)
-VALUES ('calib_schema', '0.7.0',
-        'curveRcore calib_* contract: calib_controls, calib_standards estimates, control_reference, calib_run.manifest, schema_version')
+VALUES ('calib_schema', '0.7.1',
+        'curveRcore calib_* contract: calib_weights_fit.fit_options and fit diagnostics (both weights models)')
 ON CONFLICT (component, version) DO NOTHING;

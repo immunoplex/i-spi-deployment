@@ -1,7 +1,7 @@
 # Schema manifest
 
 What the files in `db/` create, who uses each object, and what was left out.
-Checked against I-SPI 1.1.0 and i-spi-compute 1.1.0 (2026-11-19); I-SPI 1.1.1 and i-spi-compute 1.1.1 change no database objects. `40_ispi_export.sql` added 2026-11-23 (I-SPI 1.3.0).
+Checked against I-SPI 1.1.0 and i-spi-compute 1.1.0 (2026-11-19); I-SPI 1.1.1 and i-spi-compute 1.1.1 change no database objects. `40_ispi_export.sql` added 2026-11-23 (I-SPI 1.3.0). Updated 2026-11-26 for I-SPI 1.3.3 and i-spi-compute 1.2.0: calib schema 0.7.1 (curveRcore v0.7.1 adds columns to `calib_weights_fit`, the same as i-spi-compute migration 012); I-SPI 1.2.0 to 1.3.3 add no database objects.
 
 - **A** is the I-SPI app (`immunoplex/i-spi`, `src/`).
 - **W** is the i-spi-compute worker. The compute API itself does not touch the
@@ -38,7 +38,7 @@ Checked against I-SPI 1.1.0 and i-spi-compute 1.1.0 (2026-11-19); I-SPI 1.1.1 an
 | `control_for_fit` | view | W: the control wells estimated after each fit; A: Replicate Linearity |
 | `calib_settings_candidates()`, `resolve_settings()`, `resolve_settings_batch()` | functions | A: settings cascade; W: settings for each curve |
 
-### `madi_results`: results and settings (20_calib_schema.sql, curveRcore 0.7.0)
+### `madi_results`: results and settings (20_calib_schema.sql, curveRcore 0.7.1)
 
 `calib_run`, `calib_fit`, `calib_param`, `calib_gate`, `calib_grid`,
 `calib_samples`, `calib_standards`, `calib_controls`, `calib_blanks`,

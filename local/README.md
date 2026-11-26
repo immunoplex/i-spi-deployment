@@ -6,10 +6,10 @@ manifests:
 
 | Service | Image | Reached at |
 |---|---|---|
-| `i-spi` | `ghcr.io/immunoplex/i-spi:1.1.1` | http://localhost:3838/ |
+| `i-spi` | `ghcr.io/immunoplex/i-spi:1.3.3` | http://localhost:3838/ |
 | `dex` | `dexidp/dex:v2.44.0` | http://localhost:5556/dex (sign-in) |
-| `i-spi-compute-api` | `ghcr.io/immunoplex/i-spi-compute-api:1.1.1` | http://localhost:8000/docs (optional) |
-| `i-spi-compute-worker` | `ghcr.io/immunoplex/i-spi-compute-worker:1.1.1` | no port |
+| `i-spi-compute-api` | `ghcr.io/immunoplex/i-spi-compute-api:1.2.0` | http://localhost:8000/docs (optional) |
+| `i-spi-compute-worker` | `ghcr.io/immunoplex/i-spi-compute-worker:1.2.0` | no port |
 | `i-spi-compute-redis` | `redis:7.4` | no port |
 | `postgres` | `postgres:16`, schema from `../db` | `localhost:5433` (optional) |
 

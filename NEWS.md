@@ -1,3 +1,20 @@
+# ispideployment 2.1.0
+
+* **Images:** I-SPI `1.3.3` (from `1.1.1`), i-spi-compute API and worker `1.2.0`
+  (from `1.1.1`; curveRcore 0.7.1, curveRweights 0.3.1, curveRfreq and
+  curveRbayes 0.5.2, CmdStan 2.40.0).
+* **`db/`:** calib schema `0.7.1` (`20_calib_schema.sql` copied from curveRcore
+  v0.7.1): `calib_weights_fit` gains `fit_options` and six fit diagnostics. An
+  existing database needs i-spi-compute migration 012 before the 1.2.0 worker
+  starts; see
+  [Upgrading](https://immunoplex.github.io/i-spi-deployment/articles/upgrading.html).
+* **I-SPI environment:** the database settings are `DB_NAME`, `DB_HOST`,
+  `DB_PORT`, `DB_USER`, `DB_PASSWORD` (the names the worker uses) in
+  `i-spi.yml` and the local stack. I-SPI 1.3.3 still reads the old `db`,
+  `db_host`, `db_port`, `db_userid_x`, `db_pwd_x` when the new names are unset.
+  New optional `ISPI_ENABLE_ADDITIVE_WEIGHTS`.
+* **Checks:** the end-to-end test waits for calib schema `0.7.1`.
+
 # ispideployment 2.0.0
 
 First versioned release of this repository. It replaces the earlier layout
