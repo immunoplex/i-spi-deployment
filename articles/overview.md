@@ -50,14 +50,14 @@ worker; the worker writes the results to PostgreSQL.
 | Dex | `dexidp/dex:v2.44.0-alpine` | 5556, 5557 | yes (1 GB volume) | sign-in (OpenID Connect) |
 | dex-account | `ghcr.io/immunoplex/signup`, pinned by digest | 8080 | no | self-service signup page |
 | PostgreSQL | `postgres:17.2` | 5432 | yes (20 GB volume) | the `immunoplex` database |
-| I-SPI | `ghcr.io/immunoplex/i-spi:1.1.1` | 3838 | no | the application |
-| i-spi-compute API | `ghcr.io/immunoplex/i-spi-compute-api:1.1.1` | 8000 | no | accepts and reports fit jobs |
+| I-SPI | `ghcr.io/immunoplex/i-spi:1.3.3` | 3838 | no | the application |
+| i-spi-compute API | `ghcr.io/immunoplex/i-spi-compute-api:1.2.0` | 8000 | no | accepts and reports fit jobs |
 | i-spi-compute Redis | `redis:7.4` | 6379 | no | the job queue |
-| i-spi-compute worker | `ghcr.io/immunoplex/i-spi-compute-worker:1.1.1` | none | no | runs the fits, writes `calib_*` |
+| i-spi-compute worker | `ghcr.io/immunoplex/i-spi-compute-worker:1.2.0` | none | no | runs the fits, writes `calib_*` |
 | whoami (optional) | `traefik/whoami`, `oauth2-proxy:v7.8.1` | 80, 8080 | no | test page that shows the signed-in user |
 
-The worker image contains curveRcore 0.7.0, curveRfreq 0.5.2,
-curveRbayes 0.5.2, curveRweights 0.3.0 and CmdStan 2.40.0.
+The worker image contains curveRcore 0.7.1, curveRfreq 0.5.2,
+curveRbayes 0.5.2, curveRweights 0.3.1 and CmdStan 2.40.0.
 
 ## Choices to make first
 

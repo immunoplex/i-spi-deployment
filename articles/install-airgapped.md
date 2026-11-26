@@ -20,9 +20,9 @@ fail if a manifest uses an image that is not listed here.
 | `busybox` | `dex.yml` (init container that installs the Dex web theme) |
 | `ghcr.io/immunoplex/signup:main@sha256:cd7c59b4e5fb2b5090b6995b96265afcfba6b564a86894c1a2ebbae3a2067a79` | `dex.yml` (signup page; pinned by digest, the image has no release tags) |
 | `postgres:17.2` | `postgresql.yml` |
-| `ghcr.io/immunoplex/i-spi:1.1.1` | `i-spi.yml` |
-| `ghcr.io/immunoplex/i-spi-compute-api:1.1.1` | `i-spi-compute.yml`, `i-spi-compute-sim.yml` |
-| `ghcr.io/immunoplex/i-spi-compute-worker:1.1.1` | `i-spi-compute.yml`, `i-spi-compute-sim.yml` |
+| `ghcr.io/immunoplex/i-spi:1.3.3` | `i-spi.yml` |
+| `ghcr.io/immunoplex/i-spi-compute-api:1.2.0` | `i-spi-compute.yml`, `i-spi-compute-sim.yml` |
+| `ghcr.io/immunoplex/i-spi-compute-worker:1.2.0` | `i-spi-compute.yml`, `i-spi-compute-sim.yml` |
 | `redis:7.4` | `i-spi-compute.yml`, `i-spi-compute-sim.yml` |
 | `traefik/whoami` | `whoami.yml` (optional test page) |
 | `quay.io/oauth2-proxy/oauth2-proxy:v7.8.1` | `whoami.yml` (optional test page) |
@@ -36,9 +36,9 @@ for img in \
   busybox \
   ghcr.io/immunoplex/signup:main@sha256:cd7c59b4e5fb2b5090b6995b96265afcfba6b564a86894c1a2ebbae3a2067a79 \
   postgres:17.2 \
-  ghcr.io/immunoplex/i-spi:1.1.1 \
-  ghcr.io/immunoplex/i-spi-compute-api:1.1.1 \
-  ghcr.io/immunoplex/i-spi-compute-worker:1.1.1 \
+  ghcr.io/immunoplex/i-spi:1.3.3 \
+  ghcr.io/immunoplex/i-spi-compute-api:1.2.0 \
+  ghcr.io/immunoplex/i-spi-compute-worker:1.2.0 \
   redis:7.4 \
   traefik/whoami \
   quay.io/oauth2-proxy/oauth2-proxy:v7.8.1

@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">ispideployment</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.0.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.1.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -47,6 +47,17 @@
     </div>
 
     <div class="section level2">
+<h2 class="pkg-version" data-toc-text="2.1.0" id="ispideployment-210">ispideployment 2.1.0<a class="anchor" aria-label="anchor" href="#ispideployment-210"></a></h2>
+<ul><li>
+<strong>Images:</strong> I-SPI <code>1.3.3</code> (from <code>1.1.1</code>), i-spi-compute API and worker <code>1.2.0</code> (from <code>1.1.1</code>; curveRcore 0.7.1, curveRweights 0.3.1, curveRfreq and curveRbayes 0.5.2, CmdStan 2.40.0).</li>
+<li>
+<strong><code>db/</code>:</strong> calib schema <code>0.7.1</code> (<code>20_calib_schema.sql</code> copied from curveRcore v0.7.1): <code>calib_weights_fit</code> gains <code>fit_options</code> and six fit diagnostics. An existing database needs i-spi-compute migration 012 before the 1.2.0 worker starts; see <a href="https://immunoplex.github.io/i-spi-deployment/articles/upgrading.html">Upgrading</a>.</li>
+<li>
+<strong>I-SPI environment:</strong> the database settings are <code>DB_NAME</code>, <code>DB_HOST</code>, <code>DB_PORT</code>, <code>DB_USER</code>, <code>DB_PASSWORD</code> (the names the worker uses) in <code>i-spi.yml</code> and the local stack. I-SPI 1.3.3 still reads the old <code>db</code>, <code>db_host</code>, <code>db_port</code>, <code>db_userid_x</code>, <code>db_pwd_x</code> when the new names are unset. New optional <code>ISPI_ENABLE_ADDITIVE_WEIGHTS</code>.</li>
+<li>
+<strong>Checks:</strong> the end-to-end test waits for calib schema <code>0.7.1</code>.</li>
+</ul></div>
+    <div class="section level2">
 <h2 class="pkg-version" data-toc-text="2.0.0" id="ispideployment-200">ispideployment 2.0.0<a class="anchor" aria-label="anchor" href="#ispideployment-200"></a></h2>
 <p>First versioned release of this repository. It replaces the earlier layout (database dumps, batch calculator, separate README guides) with:</p>
 <ul><li>
@@ -63,7 +74,8 @@
 <strong>Documentation site</strong> built with pkgdown: overview, local, cluster, cloud (provider-neutral) and air-gapped installs, configuration, database schema, upgrading, and checks.</li>
 </ul><p>i-spi-compute 1.1.1 fixes a 1.1.0 worker bug: Bayesian fits saved without posterior draws (the default) stored no back-calculated standard or control estimates. See <a href="https://immunoplex.github.io/i-spi-deployment/articles/upgrading.html">Upgrading</a> for how to fill them in for fits made on 1.1.0.</p>
 </div>
-  </main></div>
+  </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
+    </nav></aside></div>
 
 
     <footer><div class="pkgdown-footer-left">
