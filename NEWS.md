@@ -1,3 +1,12 @@
+# ispideployment (development)
+
+* **`db/30_seed_settings.sql`:** the `noise_model` setting (system default
+  `constant`; choices `constant`, `add_prop`) and its catalog row, the same rows
+  as i-spi-compute migration 013. Used by i-spi-compute 1.3.0 (curveRfreq and
+  curveRbayes 0.6.0) and offered in I-SPI from the release after 1.3.5. The
+  image tags stay at I-SPI 1.3.3 / i-spi-compute 1.2.0 until those releases
+  are pinned here; an existing database gets the rows from migration 013.
+
 # ispideployment 2.1.0
 
 * **Images:** I-SPI `1.3.3` (from `1.1.1`), i-spi-compute API and worker `1.2.0`
